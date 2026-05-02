@@ -24,9 +24,7 @@ fi
 # COPILOT_EXTRA_ARGS may be set via `docker run -e COPILOT_EXTRA_ARGS=...`
 # to pass additional flags without overriding the defaults below.
 DEFAULT_COPILOT_ARGS=(
-    --allow-all          # allow all tools, paths and URLs without prompting
-    --allow-all-paths    # explicit: any file-system path is accessible
-    --allow-all-urls     # explicit: any URL may be fetched
+    --allow-all   # shorthand for --allow-all-tools --allow-all-paths --allow-all-urls
 )
 
 # Merge env-supplied extras
