@@ -1,0 +1,17 @@
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Build artifacts (if any project gets checked in)
+target/
+build/
+out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local environment overrides
+.env
+.env.local
