@@ -25,6 +25,9 @@
 #   --alias <name>      Alias name to register  (default: copilot-sandbox)
 #   -h, --help          Show this help
 #
+# Note: the alias stores the absolute path to this repository at install time.
+#       If you move the repository, re-run install.sh to update the alias.
+#
 # After installation, reload your shell config or open a new terminal, then
 # run from any project directory:
 #
@@ -71,7 +74,6 @@ info "start-sandbox.sh is executable."
 # ── build the Docker image ────────────────────────────────────────────────────
 if [[ "$SKIP_BUILD" == false ]]; then
     log "Building Docker image 'java-copilot-sandbox' …"
-    "${SCRIPT_DIR}/start-sandbox.sh" --no-build 2>/dev/null || true   # ensure script is reachable
     docker build -t java-copilot-sandbox "${SCRIPT_DIR}"
     ok "Docker image built."
 else

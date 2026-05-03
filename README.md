@@ -67,6 +67,9 @@ Options
   -h, --help          Show help
 ```
 
+> **Note:** the alias stores the absolute path to the cloned repository.
+> If you move the repository, re-run `install.sh` to update the alias.
+
 ---
 
 ## What the launcher script does
