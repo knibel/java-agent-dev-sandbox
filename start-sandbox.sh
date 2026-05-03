@@ -124,7 +124,10 @@ add_mount() {
 }
 
 # 1. ~/.copilot  ─  custom instructions AND ~/.copilot/mcp-config.json
-add_mount "${HOME}/.copilot" "/root/.copilot" "ro"
+#    Mounted read-write so the Copilot CLI can persist session state under
+#    ~/.copilot/session-state/ (required to avoid ENOENT errors and to support
+#    the --resume flag across container restarts).
+add_mount "${HOME}/.copilot" "/root/.copilot" "rw"
 
 # 2. Parse MCP config for local server paths so those binaries/scripts are
 #    accessible inside the container.
