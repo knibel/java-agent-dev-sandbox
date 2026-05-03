@@ -90,6 +90,15 @@ ENV PATH="\
 /root/.sdkman/candidates/java/current/bin:\
 ${PATH}"
 
+# ── GitHub Copilot CLI agent ─────────────────────────────────────────────────
+# Accept the install prompt non-interactively so the agent binary is cached in
+# the image.  The first `gh copilot` run inside the container will therefore
+# never pause and ask "Would you like to install GitHub Copilot? [Y/n]".
+# The download is best-effort; if GitHub releases are unreachable the image
+# still builds and the binary will be fetched on first use instead.
+RUN printf 'y\n' | gh copilot version 2>/dev/null || \
+    echo "Warning: Copilot CLI agent could not be pre-installed; it will be installed on first run."
+
 # ── shell initialisation ─────────────────────────────────────────────────────
 # Source SDKMAN in interactive shells
 RUN echo '\n# SDKMAN\nsource /root/.sdkman/bin/sdkman-init.sh' >> /root/.bashrc
