@@ -74,7 +74,33 @@ info "start-sandbox.sh is executable."
 # ── build the Docker image ────────────────────────────────────────────────────
 if [[ "$SKIP_BUILD" == false ]]; then
     log "Building Docker image 'java-copilot-sandbox' …"
-    docker build -t java-copilot-sandbox "${SCRIPT_DIR}"
+
+    # Resolve the latest gh CLI release so the image is never pinned to a
+    # stale version.  Falls back gracefully when the API is unreachable.
+    LATEST_GH_VERSION=""
+    if command -v curl &>/dev/null; then
+        GH_API_RESPONSE="$(curl -fsSL "https://api.github.com/repos/cli/cli/releases/latest" 2>/dev/null || true)"
+        if [[ -n "${GH_API_RESPONSE}" ]]; then
+            if command -v jq &>/dev/null; then
+                LATEST_GH_VERSION="$(printf '%s' "${GH_API_RESPONSE}" | jq -r '.tag_name | ltrimstr("v")' 2>/dev/null || true)"
+            else
+                LATEST_GH_VERSION="$(printf '%s' "${GH_API_RESPONSE}" | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/' || true)"
+            fi
+        fi
+    fi
+
+    GH_BUILD_ARGS=()
+    if [[ -n "${LATEST_GH_VERSION}" ]]; then
+        info "Using latest gh CLI version: ${LATEST_GH_VERSION}"
+        GH_BUILD_ARGS+=("--build-arg" "GH_VERSION=${LATEST_GH_VERSION}")
+    else
+        warn "Could not determine latest gh CLI version; using Dockerfile default."
+    fi
+
+    docker build \
+        "${GH_BUILD_ARGS[@]}" \
+        -t java-copilot-sandbox \
+        "${SCRIPT_DIR}"
     ok "Docker image built."
 else
     log "Skipping Docker image build (--no-build)."

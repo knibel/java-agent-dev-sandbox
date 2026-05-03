@@ -28,7 +28,12 @@ fi
 # If ~/.config/gh was not mounted from the host (or has no valid token), walk
 # the user through `gh auth login` before trying to start the Copilot CLI.
 # Without a token the CLI will fail immediately anyway, so this is friendlier.
-if ! gh auth status &>/dev/null; then
+#
+# Note: `gh auth status` only checks file-based credentials – it does NOT
+# recognise tokens supplied via GH_TOKEN / GITHUB_TOKEN.  Skip the prompt
+# when either of those env vars is already set (start-sandbox.sh forwards the
+# host token this way).
+if [[ -z "${GH_TOKEN:-}" && -z "${GITHUB_TOKEN:-}" ]] && ! gh auth status &>/dev/null; then
     echo ""
     echo "⚠  No GitHub authentication found."
     echo "   Please log in so the Copilot CLI can access the API."
