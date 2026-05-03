@@ -20,8 +20,11 @@ jobs:
 
         steps:
             - name: Pre-install GitHub Copilot CLI
-              # Answer the "Would you like to install GitHub Copilot? [Y/n]" prompt
-              # non-interactively so the binary is cached before Copilot starts work.
-              run: printf 'y\n' | gh copilot version
+              # Install the gh copilot extension and accept the
+              # "Would you like to install GitHub Copilot? [Y/n]" prompt
+              # non-interactively so the binary is baked in before the agent starts.
+              run: |
+                  gh extension install github/gh-copilot 2>/dev/null || true
+                  printf 'y\n' | gh copilot version
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
