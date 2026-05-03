@@ -26,16 +26,46 @@ servers all wired up automatically.
 git clone https://github.com/knibel/java-agent-dev-sandbox.git
 cd java-agent-dev-sandbox
 
-# 2. Make the launcher executable (only needed once)
-chmod +x start-sandbox.sh
+# 2. Run the install script (builds the image + registers a shell alias)
+chmod +x install.sh && ./install.sh
 
-# 3. Build the image and enter the Copilot CLI
+# 3. Reload your shell config
+source ~/.bashrc   # or ~/.zshrc
+```
+
+The install script:
+- Builds the Docker image (takes a few minutes the first time to install SDKMAN, Java, Maven, Gradle, Spring Boot CLI and the Azure CLI).
+- Adds a `copilot-sandbox` alias to `~/.bashrc` / `~/.zshrc`.
+
+After that, launch from **any** directory with a single command:
+
+```bash
+cd ~/projects/my-spring-app
+copilot-sandbox
+```
+
+`$PWD` is automatically mounted as `/workspace` and Copilot starts there.
+
+### Manual start (without the alias)
+
+```bash
 ./start-sandbox.sh
 ```
 
-The first run builds the Docker image (takes a few minutes to install
-SDKMAN, Java, Maven, Gradle, Spring Boot CLI and the Azure CLI).
 Subsequent runs reuse the cached image and start in seconds.
+
+---
+
+## Install script options
+
+```
+./install.sh [options]
+
+Options
+  --no-build          Skip the initial Docker image build
+  --alias <name>      Alias name to register  (default: copilot-sandbox)
+  -h, --help          Show help
+```
 
 ---
 
