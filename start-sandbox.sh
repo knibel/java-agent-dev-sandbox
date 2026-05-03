@@ -123,11 +123,15 @@ add_mount() {
     fi
 }
 
-# 1. ~/.copilot  ─  custom instructions AND ~/.copilot/mcp-config.json
-#    Mounted read-write so the Copilot CLI can persist session state under
-#    ~/.copilot/session-state/ (required to avoid ENOENT errors and to support
-#    the --resume flag across container restarts).
-add_mount "${HOME}/.copilot" "/root/.copilot" "rw"
+# 1. ~/.copilot  ─  custom instructions AND ~/.copilot/mcp-config.json (read-only)
+#    Only the session-state subdirectory is mounted read-write so the Copilot
+#    CLI can persist session events (and --resume works across container
+#    restarts) without being able to modify any config files on the host.
+add_mount "${HOME}/.copilot" "/root/.copilot" "ro"
+# 1a. ~/.copilot/session-state  ─  writable overlay for session persistence.
+#     Created on the host if it does not yet exist so the mount always succeeds.
+mkdir -p "${HOME}/.copilot/session-state"
+add_mount "${HOME}/.copilot/session-state" "/root/.copilot/session-state" "rw"
 
 # 2. Parse MCP config for local server paths so those binaries/scripts are
 #    accessible inside the container.
