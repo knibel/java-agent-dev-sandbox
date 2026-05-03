@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM ubuntu:24.04
 
 # ── build arguments ─────────────────────────────────────────────────────────
@@ -91,13 +92,13 @@ ENV PATH="\
 ${PATH}"
 
 # ── GitHub Copilot CLI agent ─────────────────────────────────────────────────
-# Accept the install prompt non-interactively so the agent binary is cached in
-# the image.  The first `gh copilot` run inside the container will therefore
-# never pause and ask "Would you like to install GitHub Copilot? [Y/n]".
-# The download is best-effort; if GitHub releases are unreachable the image
-# still builds and the binary will be fetched on first use instead.
+# Try to pre-install the agent binary at build time (best-effort).
+# Without a valid GitHub token in the build environment this step is silently
+# skipped; start-sandbox.sh bind-mounts a persistent host-side cache directory
+# read-write so the binary is downloaded exactly once on the first container
+# start and reused on every subsequent start without any re-download.
 RUN printf 'y\n' | gh copilot version 2>/dev/null || \
-    echo "Warning: Copilot CLI agent could not be pre-installed; it will be installed on first run."
+    echo "Note: Copilot CLI agent could not be pre-installed; it will be installed on first run."
 
 # ── shell initialisation ─────────────────────────────────────────────────────
 # Source SDKMAN in interactive shells
