@@ -99,11 +99,32 @@ require_cmd() {
 require_cmd docker
 command -v jq &>/dev/null || warn "jq not found – MCP config paths will not be auto-mounted"
 
+# ── resolve GitHub token ──────────────────────────────────────────────────────
+# Read early so we can pass it as a BuildKit secret for pre-baking the Copilot
+# CLI agent binary into the image, and reuse it later as a container env var.
+GH_TOKEN_VALUE=""
+if command -v gh &>/dev/null; then
+    GH_TOKEN_VALUE="$(gh auth token 2>/dev/null || true)"
+fi
+
 # ── build image ───────────────────────────────────────────────────────────────
 if [[ "$SKIP_BUILD" == false ]]; then
     log "Building Docker image '${IMAGE_NAME}' …"
-    docker build \
+    # Pass the host GitHub token as a BuildKit secret so the Copilot CLI agent
+    # binary can be downloaded and baked into the image at build time.
+    # This eliminates the "Would you like to install GitHub Copilot?" prompt on
+    # every container start.  DOCKER_BUILDKIT=1 is required for --secret support.
+    BUILD_SECRET_ARGS=()
+    if [[ -n "${GH_TOKEN_VALUE}" ]]; then
+        export GH_TOKEN_VALUE
+        BUILD_SECRET_ARGS+=("--secret" "id=gh_token,env=GH_TOKEN_VALUE")
+    else
+        warn "No GitHub token found; Copilot CLI agent binary will not be pre-baked into the image."
+        warn "Run 'gh auth login' on the host so the token can be passed at build time."
+    fi
+    DOCKER_BUILDKIT=1 docker build \
         "${EXTRA_BUILD_ARGS[@]}" \
+        "${BUILD_SECRET_ARGS[@]}" \
         -t "${IMAGE_NAME}" \
         "${SCRIPT_DIR}"
     log "Image built successfully."
@@ -204,19 +225,16 @@ fi
 mkdir -p "${HOME}/.azure"
 add_mount "${HOME}/.azure" "/root/.azure" "rw"
 
-# 6. GitHub token – read from the host's gh CLI so it works even when the
-#    token is stored in the system keyring rather than in ~/.config/gh/hosts.yml
-#    (the keyring is not available inside the container).
+# 6. GitHub token – already resolved above for the build step; forward it into
+#    the container so the Copilot CLI can authenticate without mounting the
+#    host keyring (which is not available inside the container).
 declare -a ENV_ARGS=()
-if command -v gh &>/dev/null; then
-    GH_TOKEN_VALUE="$(gh auth token 2>/dev/null || true)"
-    if [[ -n "${GH_TOKEN_VALUE}" ]]; then
-        info "Forwarding GitHub token from host gh CLI as GH_TOKEN"
-        ENV_ARGS+=("-e" "GH_TOKEN=${GH_TOKEN_VALUE}")
-    else
-        warn "Could not read a GitHub token from 'gh auth token'."
-        warn "Run 'gh auth login' on the host first, or the container may prompt for login."
-    fi
+if [[ -n "${GH_TOKEN_VALUE}" ]]; then
+    info "Forwarding GitHub token from host gh CLI as GH_TOKEN"
+    ENV_ARGS+=("-e" "GH_TOKEN=${GH_TOKEN_VALUE}")
+elif command -v gh &>/dev/null; then
+    warn "Could not read a GitHub token from 'gh auth token'."
+    warn "Run 'gh auth login' on the host first, or the container may prompt for login."
 fi
 
 # 7. Workspace directory (read-write so Copilot can edit files)

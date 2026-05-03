@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM ubuntu:24.04
 
 # ── build arguments ─────────────────────────────────────────────────────────
@@ -91,13 +92,15 @@ ENV PATH="\
 ${PATH}"
 
 # ── GitHub Copilot CLI agent ─────────────────────────────────────────────────
-# Accept the install prompt non-interactively so the agent binary is cached in
-# the image.  The first `gh copilot` run inside the container will therefore
-# never pause and ask "Would you like to install GitHub Copilot? [Y/n]".
-# The download is best-effort; if GitHub releases are unreachable the image
-# still builds and the binary will be fetched on first use instead.
-RUN printf 'y\n' | gh copilot version 2>/dev/null || \
-    echo "Warning: Copilot CLI agent could not be pre-installed; it will be installed on first run."
+# Accept the install prompt non-interactively so the agent binary is baked
+# into the image.  start-sandbox.sh passes the host GH_TOKEN as a BuildKit
+# secret so the binary can actually be downloaded here.  Without the secret
+# (e.g. a plain `docker build`) the step is skipped gracefully and the binary
+# will be fetched on first use by entrypoint.sh instead.
+RUN --mount=type=secret,id=gh_token \
+    GH_TOKEN=$(cat /run/secrets/gh_token 2>/dev/null || true) \
+    printf 'y\n' | gh copilot version 2>/dev/null || \
+    echo "Note: Copilot CLI agent could not be pre-installed; it will be installed on first run."
 
 # ── shell initialisation ─────────────────────────────────────────────────────
 # Source SDKMAN in interactive shells
