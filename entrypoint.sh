@@ -43,6 +43,24 @@ if [[ -z "${GH_TOKEN:-}" && -z "${GITHUB_TOKEN:-}" ]] && ! gh auth status &>/dev
     echo ""
 fi
 
+# ── Azure authentication ──────────────────────────────────────────────────────
+# If the Azure CLI is present and no valid subscription is active, walk the user
+# through `az login` before launching Copilot.  MCP servers that call Azure
+# DevOps APIs (e.g. ado-git) will fail immediately without a valid session, so
+# catching this early gives a much friendlier experience.
+#
+# ~/.azure is mounted read-write by start-sandbox.sh so that refreshed tokens
+# are persisted back to the host cache across container restarts.
+if command -v az &>/dev/null && ! az account show &>/dev/null 2>&1; then
+    echo ""
+    echo "⚠  No Azure authentication found."
+    echo "   MCP servers that use Azure DevOps (e.g. ado-git) require an Azure login."
+    echo "   Please log in now (a browser tab will open, or use --use-device-code)."
+    echo ""
+    az login
+    echo ""
+fi
+
 # ── ensure Copilot CLI agent binary is installed ─────────────────────────────
 # The agent binary is pre-baked into the image during `docker build`, but that
 # step is best-effort: it silently fails when no GitHub auth is available at

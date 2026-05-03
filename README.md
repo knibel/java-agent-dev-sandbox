@@ -83,7 +83,7 @@ parts as read-only volumes before handing control to the container:
 | `~/.copilot/mcp-config.json` | parsed | — | Any absolute paths referenced by MCP servers are also mounted |
 | `~/.config/gh/` | `/root/.config/gh/` | read-only | GitHub / Copilot authentication token |
 | `~/.local/share/gh/copilot/` | `/root/.local/share/gh/copilot/` | read-only | Pre-downloaded Copilot CLI binary (Linux hosts only; skips re-download) |
-| `~/.azure/` | `/root/.azure/` | read-only | Azure CLI credentials & MSAL token cache |
+| `~/.azure/` | `/root/.azure/` | read-write | Azure CLI credentials & MSAL token cache |
 | `<workspace>` (default: `$PWD`) | `/workspace/` | read-write | Your project files |
 
 ---
@@ -232,9 +232,14 @@ sdk use java 23.0.2-tem
 
 ## Azure CLI
 
-If `~/.azure` exists on the host it is mounted read-only so the Azure CLI
-inside the container can reuse existing login sessions (including refresh
-tokens from `az login`).
+`~/.azure` is created on the host (if it does not exist) and mounted
+**read-write** into the container so the Azure CLI can persist refreshed access
+tokens back to the host cache across container restarts.
+
+If `az` is installed in the container but no active subscription is found at
+start-up, the entrypoint automatically runs `az login` before launching
+Copilot.  This ensures that MCP servers that call Azure DevOps APIs
+(e.g. `ado-git`) have a valid session from the very first tool call.
 
 ---
 
