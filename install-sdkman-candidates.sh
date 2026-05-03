@@ -20,10 +20,11 @@ if [[ -f "${SDKMAN_INIT}" ]]; then
     echo "SDKMAN found – installing Java toolchains via SDKMAN …"
 
     # sdkman-init.sh references variables that may be unset; disable -u temporarily
+    # sdkman-init.sh and all sdk commands reference variables that may be
+    # unset; keep -u disabled for the entire SDKMAN block
     set +u
     # shellcheck source=/dev/null
     source "${SDKMAN_INIT}"
-    set -u
 
     # ── Java ──────────────────────────────────────────────────────────────
     JAVA_MAJOR=$(echo "${JAVA_VERSION}" | cut -d. -f1 | cut -d- -f1)
@@ -64,6 +65,7 @@ if [[ -f "${SDKMAN_INIT}" ]]; then
     echo ""
     echo "Done – installed SDKMAN candidates:"
     sdk current
+    set -u
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fallback: Ubuntu apt packages
