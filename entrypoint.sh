@@ -15,9 +15,13 @@
 set -euo pipefail
 
 # ── SDKMAN ───────────────────────────────────────────────────────────────────
+# sdkman-init.sh references variables (e.g. SDKMAN_CANDIDATES_API) before they
+# are assigned, which conflicts with `set -u`.  Disable that check temporarily.
 # shellcheck source=/dev/null
 if [[ -f "${SDKMAN_DIR:-/root/.sdkman}/bin/sdkman-init.sh" ]]; then
+    set +u
     source "${SDKMAN_DIR:-/root/.sdkman}/bin/sdkman-init.sh"
+    set -u
 fi
 
 # ── default Copilot CLI arguments ────────────────────────────────────────────
