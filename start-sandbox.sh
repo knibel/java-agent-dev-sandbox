@@ -198,7 +198,11 @@ if [[ "$(uname -s)" == "Linux" ]]; then
 fi
 
 # 5. Azure CLI credentials (refresh token, MSAL cache, etc.)
-add_mount "${HOME}/.azure" "/root/.azure" "ro"
+#    Mounted read-write so the Azure CLI can persist refreshed access tokens
+#    back to the host cache.  Without write access, token-refresh calls fail
+#    silently and any MCP server that invokes `az` (e.g. ado-git) will error.
+mkdir -p "${HOME}/.azure"
+add_mount "${HOME}/.azure" "/root/.azure" "rw"
 
 # 6. GitHub token – read from the host's gh CLI so it works even when the
 #    token is stored in the system keyring rather than in ~/.config/gh/hosts.yml
