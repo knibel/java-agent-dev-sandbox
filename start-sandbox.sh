@@ -177,7 +177,22 @@ fi
 # 5. Azure CLI credentials (refresh token, MSAL cache, etc.)
 add_mount "${HOME}/.azure" "/root/.azure" "ro"
 
-# 6. Workspace directory (read-write so Copilot can edit files)
+# 6. GitHub token – read from the host's gh CLI so it works even when the
+#    token is stored in the system keyring rather than in ~/.config/gh/hosts.yml
+#    (the keyring is not available inside the container).
+declare -a ENV_ARGS=()
+if command -v gh &>/dev/null; then
+    GH_TOKEN_VALUE="$(gh auth token 2>/dev/null || true)"
+    if [[ -n "${GH_TOKEN_VALUE}" ]]; then
+        info "Forwarding GitHub token from host gh CLI as GH_TOKEN"
+        ENV_ARGS+=("-e" "GH_TOKEN=${GH_TOKEN_VALUE}")
+    else
+        warn "Could not read a GitHub token from 'gh auth token'."
+        warn "Run 'gh auth login' on the host first, or the container may prompt for login."
+    fi
+fi
+
+# 7. Workspace directory (read-write so Copilot can edit files)
 if [[ -d "${WORKSPACE_DIR}" ]]; then
     info "Workspace ${WORKSPACE_DIR}  →  /workspace  (rw)"
     MOUNTS+=("-v" "${WORKSPACE_DIR}:/workspace")
@@ -200,5 +215,6 @@ docker run \
     --rm \
     --name "${CONTAINER_NAME}" \
     "${MOUNTS[@]}" \
+    "${ENV_ARGS[@]}" \
     "${IMAGE_NAME}" \
     "${COPILOT_CLI_ARGS[@]+"${COPILOT_CLI_ARGS[@]}"}"
