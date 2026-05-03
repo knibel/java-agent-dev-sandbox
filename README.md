@@ -176,6 +176,13 @@ The Copilot CLI reads MCP server configuration from
 absolute filesystem paths it finds, so local MCP servers are available inside
 the container at the same path.
 
+When a binary lives inside a virtual environment (`.venv/bin/`, `venv/bin/`,
+etc.) or a `node_modules` directory, the script walks up to the **project root**
+(the parent of the venv / `node_modules` directory) and mounts that instead.
+This ensures the Python interpreter, installed packages, and any other project
+files are all accessible at their original absolute paths, which is required for
+the MCP server process to start correctly.
+
 `npx`-based servers work out of the box because Node.js is installed in the
 image.
 

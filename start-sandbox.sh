@@ -144,9 +144,25 @@ if [[ -f "${MCP_CONFIG}" ]] && command -v jq &>/dev/null; then
     while IFS= read -r raw_path; do
         [[ -z "$raw_path" ]] && continue
 
-        # Normalise: if it's a file use its parent dir; if already a dir use it
+        # Normalise: if it's a file, find the best ancestor directory to mount.
+        # For files inside a virtual-environment (.venv / venv / env / .env) or
+        # node_modules, mount the project root (the parent of that directory)
+        # so the interpreter and all dependencies are accessible at their
+        # original absolute paths inside the container.
+        # For ordinary files just use the immediate parent directory.
         if [[ -f "$raw_path" ]]; then
             local_dir="$(dirname "$raw_path")"
+            check_dir="$local_dir"
+            while [[ "$check_dir" != "/" && "$check_dir" != "$HOME" ]]; do
+                dir_base="$(basename "$check_dir")"
+                if [[ "$dir_base" == ".venv" || "$dir_base" == "venv" || \
+                      "$dir_base" == "env"  || "$dir_base" == ".env" || \
+                      "$dir_base" == "node_modules" ]]; then
+                    local_dir="$(dirname "$check_dir")"
+                    break
+                fi
+                check_dir="$(dirname "$check_dir")"
+            done
         elif [[ -d "$raw_path" ]]; then
             local_dir="$raw_path"
         else
