@@ -24,6 +24,20 @@ if [[ -f "${SDKMAN_DIR:-/root/.sdkman}/bin/sdkman-init.sh" ]]; then
     set -u
 fi
 
+# ── GitHub authentication ─────────────────────────────────────────────────────
+# If ~/.config/gh was not mounted from the host (or has no valid token), walk
+# the user through `gh auth login` before trying to start the Copilot CLI.
+# Without a token the CLI will fail immediately anyway, so this is friendlier.
+if ! gh auth status &>/dev/null; then
+    echo ""
+    echo "⚠  No GitHub authentication found."
+    echo "   Please log in so the Copilot CLI can access the API."
+    echo "   You can authenticate via a web browser (--web) or by pasting a personal access token."
+    echo ""
+    gh auth login
+    echo ""
+fi
+
 # ── default Copilot CLI arguments ────────────────────────────────────────────
 # COPILOT_EXTRA_ARGS may be set via `docker run -e COPILOT_EXTRA_ARGS=...`
 # to pass additional flags without overriding the defaults below.
