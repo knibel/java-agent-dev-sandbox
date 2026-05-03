@@ -61,6 +61,13 @@ if command -v az &>/dev/null && ! az account show &>/dev/null 2>&1; then
     echo ""
 fi
 
+# ── ensure Copilot CLI agent binary is installed ─────────────────────────────
+# The agent binary is pre-baked into the image during `docker build`, but that
+# step is best-effort: it silently fails when no GitHub auth is available at
+# build time.  Accept the install prompt non-interactively here, where
+# GH_TOKEN is already present, so the main invocation never pauses to ask.
+printf 'y\n' | gh copilot version &>/dev/null || true
+
 # ── default Copilot CLI arguments ────────────────────────────────────────────
 # COPILOT_EXTRA_ARGS may be set via `docker run -e COPILOT_EXTRA_ARGS=...`
 # to pass additional flags without overriding the defaults below.
