@@ -100,8 +100,9 @@ require_cmd docker
 command -v jq &>/dev/null || warn "jq not found – MCP config paths will not be auto-mounted"
 
 # ── resolve GitHub token ──────────────────────────────────────────────────────
-# Read early so we can pass it as a BuildKit secret for pre-baking the Copilot
-# CLI agent binary into the image, and reuse it later as a container env var.
+# Read the host GitHub token so we can forward it into the container as GH_TOKEN.
+# The Copilot CLI requires it for authentication, and entrypoint.sh uses it to
+# install the agent binary on first run if it is not already cached.
 GH_TOKEN_VALUE=""
 if command -v gh &>/dev/null; then
     GH_TOKEN_VALUE="$(gh auth token 2>/dev/null || true)"
@@ -110,21 +111,8 @@ fi
 # ── build image ───────────────────────────────────────────────────────────────
 if [[ "$SKIP_BUILD" == false ]]; then
     log "Building Docker image '${IMAGE_NAME}' …"
-    # Pass the host GitHub token as a BuildKit secret so the Copilot CLI agent
-    # binary can be downloaded and baked into the image at build time.
-    # This eliminates the "Would you like to install GitHub Copilot?" prompt on
-    # every container start.  DOCKER_BUILDKIT=1 is required for --secret support.
-    BUILD_SECRET_ARGS=()
-    if [[ -n "${GH_TOKEN_VALUE}" ]]; then
-        export GH_TOKEN_VALUE
-        BUILD_SECRET_ARGS+=("--secret" "id=gh_token,env=GH_TOKEN_VALUE")
-    else
-        warn "No GitHub token found; Copilot CLI agent binary will not be pre-baked into the image."
-        warn "Run 'gh auth login' on the host so the token can be passed at build time."
-    fi
-    DOCKER_BUILDKIT=1 docker build \
+    docker build \
         "${EXTRA_BUILD_ARGS[@]}" \
-        "${BUILD_SECRET_ARGS[@]}" \
         -t "${IMAGE_NAME}" \
         "${SCRIPT_DIR}"
     log "Image built successfully."
@@ -212,11 +200,18 @@ fi
 # 3. GitHub CLI config  ─  stores the Copilot auth token
 add_mount "${HOME}/.config/gh" "/root/.config/gh" "ro"
 
-# 4. Pre-downloaded Copilot CLI binary  ─  avoids re-download on every run.
-#    Only useful when host OS is also Linux (same binary architecture).
-if [[ "$(uname -s)" == "Linux" ]]; then
-    add_mount "${HOME}/.local/share/gh/copilot" "/root/.local/share/gh/copilot" "ro"
-fi
+# 4. Copilot CLI agent binary cache
+#    The Copilot agent binary is downloaded by `gh copilot version` inside the
+#    container on the first run and placed in /root/.local/share/gh/copilot.
+#    Bind-mounting a host-side directory read-write means the binary survives
+#    container restarts (containers are started with --rm) so the download only
+#    ever happens once.  A dedicated path is used so that Linux container
+#    binaries are kept separate from any macOS binaries the host may have under
+#    ~/.local/share/gh (important when running Docker Desktop on macOS).
+COPILOT_BINARY_CACHE="${HOME}/.local/share/java-copilot-sandbox/copilot"
+mkdir -p "${COPILOT_BINARY_CACHE}"
+info "Copilot cache  ${COPILOT_BINARY_CACHE}  →  /root/.local/share/gh/copilot  (rw)"
+MOUNTS+=("-v" "${COPILOT_BINARY_CACHE}:/root/.local/share/gh/copilot:rw")
 
 # 5. Azure CLI credentials (refresh token, MSAL cache, etc.)
 #    Mounted read-write so the Azure CLI can persist refreshed access tokens
@@ -225,9 +220,9 @@ fi
 mkdir -p "${HOME}/.azure"
 add_mount "${HOME}/.azure" "/root/.azure" "rw"
 
-# 6. GitHub token – already resolved above for the build step; forward it into
-#    the container so the Copilot CLI can authenticate without mounting the
-#    host keyring (which is not available inside the container).
+# 6. GitHub token – forward into the container so the Copilot CLI can
+#    authenticate without mounting the host keyring (not available inside the
+#    container), and so entrypoint.sh can download the agent binary on first run.
 declare -a ENV_ARGS=()
 if [[ -n "${GH_TOKEN_VALUE}" ]]; then
     info "Forwarding GitHub token from host gh CLI as GH_TOKEN"

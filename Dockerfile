@@ -92,14 +92,12 @@ ENV PATH="\
 ${PATH}"
 
 # ── GitHub Copilot CLI agent ─────────────────────────────────────────────────
-# Accept the install prompt non-interactively so the agent binary is baked
-# into the image.  start-sandbox.sh passes the host GH_TOKEN as a BuildKit
-# secret so the binary can actually be downloaded here.  Without the secret
-# (e.g. a plain `docker build`) the step is skipped gracefully and the binary
-# will be fetched on first use by entrypoint.sh instead.
-RUN --mount=type=secret,id=gh_token \
-    GH_TOKEN=$(cat /run/secrets/gh_token 2>/dev/null || true) \
-    printf 'y\n' | gh copilot version 2>/dev/null || \
+# Try to pre-install the agent binary at build time (best-effort).
+# Without a valid GitHub token in the build environment this step is silently
+# skipped; start-sandbox.sh bind-mounts a persistent host-side cache directory
+# read-write so the binary is downloaded exactly once on the first container
+# start and reused on every subsequent start without any re-download.
+RUN printf 'y\n' | gh copilot version 2>/dev/null || \
     echo "Note: Copilot CLI agent could not be pre-installed; it will be installed on first run."
 
 # ── shell initialisation ─────────────────────────────────────────────────────
