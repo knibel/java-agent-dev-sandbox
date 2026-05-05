@@ -7,7 +7,7 @@
 # ─────────────────────
 # 1. Builds (or reuses) a Docker image based on the Dockerfile in this repo.
 # 2. Detects host-side files and mounts them into the container:
-#      ~/.copilot             → /root/.copilot:ro   (instructions + MCP config)
+#      ~/.copilot             → /root/.copilot-host:ro (instructions + MCP config, copied to writable /root/.copilot by entrypoint)
 #      ~/.config/gh           → /root/.config/gh:ro (GitHub / Copilot auth)
 #      ~/.local/share/gh/copilot
 #                             → /root/.local/share/gh/copilot:ro
@@ -147,11 +147,15 @@ add_mount() {
 }
 
 # 1. ~/.copilot  ─  custom instructions AND ~/.copilot/mcp-config.json (read-only)
-#    Only the session-state subdirectory is mounted read-write so the Copilot
-#    CLI can persist session events (and --resume works across container
-#    restarts) without being able to modify any config files on the host.
-add_mount "${HOME}/.copilot" "/root/.copilot" "ro"
-# 1a. ~/.copilot/session-state  ─  writable overlay for session persistence.
+#    Mounted at a staging path (/root/.copilot-host) so that entrypoint.sh can
+#    copy the contents into /root/.copilot (a plain container-local directory)
+#    before starting the CLI.  This lets the Copilot CLI write files such as
+#    settings.json (e.g. when changing the model) without touching the host.
+add_mount "${HOME}/.copilot" "/root/.copilot-host" "ro"
+# 1a. ~/.copilot/session-state  ─  writable bind-mount for session persistence.
+#     Mounted directly at /root/.copilot/session-state so that session events
+#     are persisted back to the host (--resume works across restarts) even
+#     though the rest of /root/.copilot is container-local and writable.
 #     Created on the host if it does not yet exist so the mount always succeeds.
 mkdir -p "${HOME}/.copilot/session-state"
 add_mount "${HOME}/.copilot/session-state" "/root/.copilot/session-state" "rw"
