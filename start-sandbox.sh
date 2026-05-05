@@ -25,6 +25,7 @@
 #
 # Options
 #   -w, --workspace <dir>   Directory to mount as /workspace (default: $PWD)
+#   --tmp                   Create a temporary directory in /tmp and mount it as /workspace
 #   -i, --image <name>      Docker image name/tag            (default: java-copilot-sandbox)
 #   --no-build              Skip image rebuild (use existing image)
 #   --build-arg <ARG=VAL>   Pass extra build args to `docker build`
@@ -37,6 +38,9 @@
 # Examples
 #   # Basic interactive session
 #   ./start-sandbox.sh
+#
+#   # Use a fresh temporary directory as workspace
+#   ./start-sandbox.sh --tmp
 #
 #   # Mount a specific project directory
 #   ./start-sandbox.sh -w ~/projects/my-spring-app
@@ -54,6 +58,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ── defaults ─────────────────────────────────────────────────────────────────
 IMAGE_NAME="java-copilot-sandbox"
 WORKSPACE_DIR="$(pwd)"
+USE_TMP_WORKSPACE=false
 SKIP_BUILD=false
 EXTRA_BUILD_ARGS=()
 COPILOT_CLI_ARGS=()   # args forwarded to the container (after --)
@@ -64,6 +69,9 @@ while [[ $# -gt 0 ]]; do
         -w|--workspace)
             WORKSPACE_DIR="$(realpath "$2")"
             shift 2 ;;
+        --tmp)
+            USE_TMP_WORKSPACE=true
+            shift ;;
         -i|--image)
             IMAGE_NAME="$2"
             shift 2 ;;
@@ -95,6 +103,12 @@ warn() { echo "⚠  $*" >&2; }
 require_cmd() {
     command -v "$1" &>/dev/null || { warn "Required command not found: $1"; exit 1; }
 }
+
+# ── temporary workspace ───────────────────────────────────────────────────────
+if [[ "$USE_TMP_WORKSPACE" == true ]]; then
+    WORKSPACE_DIR="$(mktemp -d /tmp/sandbox-workspace-XXXXXX)"
+    log "Created temporary workspace: ${WORKSPACE_DIR}"
+fi
 
 require_cmd docker
 command -v jq &>/dev/null || warn "jq not found – MCP config paths will not be auto-mounted"
