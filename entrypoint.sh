@@ -14,6 +14,19 @@
 
 set -euo pipefail
 
+# ── copy host ~/.copilot config to writable container directory ───────────────
+# start-sandbox.sh mounts the host ~/.copilot at /root/.copilot-host (read-only)
+# so the Copilot CLI cannot accidentally modify host config files.  Here we copy
+# the contents into /root/.copilot (a plain, writable container directory) so
+# that the CLI can freely write files such as settings.json (e.g. when the user
+# changes the model).  The session-state subdirectory is excluded because it
+# already has its own read-write bind-mount at /root/.copilot/session-state.
+if [[ -d /root/.copilot-host ]]; then
+    mkdir -p /root/.copilot
+    find /root/.copilot-host -mindepth 1 -maxdepth 1 ! -name 'session-state' \
+        -exec cp -r {} /root/.copilot/ \;
+fi
+
 # ── SDKMAN ───────────────────────────────────────────────────────────────────
 # sdkman-init.sh references variables (e.g. SDKMAN_CANDIDATES_API) before they
 # are assigned, which conflicts with `set -u`.  Disable that check temporarily.
