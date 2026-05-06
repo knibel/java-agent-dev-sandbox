@@ -9,6 +9,7 @@
 # 2. Detects host-side files and mounts them into the container:
 #      ~/.copilot             → /root/.copilot-host:ro (instructions + MCP config, copied to writable /root/.copilot by entrypoint)
 #      ~/.config/gh           → /root/.config/gh:ro (GitHub / Copilot auth)
+#                               NOT mounted in GitHub PAT mode – see below
 #      ~/.local/share/gh/copilot
 #                             → /root/.local/share/gh/copilot:ro
 #                                                   (pre-downloaded CLI binary)
@@ -113,12 +114,20 @@ fi
 require_cmd docker
 command -v jq &>/dev/null || warn "jq not found – MCP config paths will not be auto-mounted"
 
-# ── resolve GitHub token ──────────────────────────────────────────────────────
-# Read the host GitHub token so we can forward it into the container as GH_TOKEN.
-# The Copilot CLI requires it for authentication, and entrypoint.sh uses it to
-# install the agent binary on first run if it is not already cached.
+# ── resolve GitHub authentication mode ───────────────────────────────────────
+# Detects early whether to use PAT mode or GitHub CLI mode, because the result
+# controls whether ~/.config/gh is mounted in the section below.
+# Full credential handling (env-file, info messages) is done in the
+# "collect environment variables" section alongside Azure DevOps auth.
+GH_PAT_VALUE=""
+if command -v secret-tool &>/dev/null; then
+    GH_PAT_VALUE="$(secret-tool lookup service github-pat account default 2>/dev/null || true)"
+fi
+GH_PAT_MODE=false
 GH_TOKEN_VALUE=""
-if command -v gh &>/dev/null; then
+if [[ -n "${GH_PAT_VALUE}" ]]; then
+    GH_PAT_MODE=true
+elif command -v gh &>/dev/null; then
     GH_TOKEN_VALUE="$(gh auth token 2>/dev/null || true)"
 fi
 
@@ -216,7 +225,10 @@ if [[ -f "${MCP_CONFIG}" ]] && command -v jq &>/dev/null; then
 fi
 
 # 3. GitHub CLI config  ─  stores the Copilot auth token
-add_mount "${HOME}/.config/gh" "/root/.config/gh" "ro"
+#    Not mounted in GitHub PAT mode – the container authenticates via GH_TOKEN only.
+if [[ "${GH_PAT_MODE}" == false ]]; then
+    add_mount "${HOME}/.config/gh" "/root/.config/gh" "ro"
+fi
 
 # 4. Copilot CLI agent binary cache
 #    The Copilot agent binary is downloaded by `gh copilot version` inside the
@@ -279,25 +291,55 @@ else
     add_mount "${HOME}/.azure" "/root/.azure" "rw"
 fi
 
-# Register a cleanup trap to remove the PAT env-file (if created) once the
+# Register a cleanup trap to remove the PAT env-files (if created) once the
 # container exits, regardless of whether it exits normally or is interrupted.
 ADO_ENV_FILE="${ADO_ENV_FILE:-}"
-cleanup_ado_env_file() {
+GH_ENV_FILE="${GH_ENV_FILE:-}"
+cleanup_env_files() {
     # Guard: only delete if the path was set and is under /tmp (safety check).
     [[ -n "${ADO_ENV_FILE}" && "${ADO_ENV_FILE}" =~ ^/tmp/ ]] && rm -f "${ADO_ENV_FILE}"
+    [[ -n "${GH_ENV_FILE}"  && "${GH_ENV_FILE}"  =~ ^/tmp/ ]] && rm -f "${GH_ENV_FILE}"
 }
-trap cleanup_ado_env_file EXIT INT TERM
+trap cleanup_env_files EXIT INT TERM
 
-# Build an optional --env-file argument for the PAT (empty when not in PAT mode).
+# Build optional --env-file arguments for the PAT env-files (empty when not in PAT mode).
 declare -a ADO_ENV_FILE_ARGS=()
 if [[ -n "${ADO_ENV_FILE}" ]]; then
     ADO_ENV_FILE_ARGS+=("--env-file" "${ADO_ENV_FILE}")
 fi
 
-# 6. GitHub token – forward into the container so the Copilot CLI can
-#    authenticate without mounting the host keyring (not available inside the
-#    container), and so entrypoint.sh can download the agent binary on first run.
-if [[ -n "${GH_TOKEN_VALUE}" ]]; then
+declare -a GH_ENV_FILE_ARGS=()
+
+# 6. GitHub credentials – two mutually exclusive modes:
+#
+#    Mode A – PAT from Linux keychain (preferred, least-privilege):
+#      Read a Personal Access Token stored with:
+#        secret-tool store --label "GitHub PAT" \
+#                          service github-pat account default
+#      When a PAT is found:
+#        • The token is forwarded as GH_TOKEN (used by `gh` and the Copilot CLI).
+#        • GH_PAT_MODE=1 is set so entrypoint.sh can print an info message.
+#        • ~/.config/gh is NOT mounted (see section 3 above), keeping the
+#          container isolated from broader GitHub CLI credentials.
+#
+#    Mode B – GitHub CLI credentials (automatic fallback):
+#      ~/.config/gh is mounted read-only (section 3 above) and the token read
+#      by `gh auth token` is forwarded as GH_TOKEN so the Copilot CLI can
+#      authenticate without mounting the host keyring (not available inside
+#      the container). entrypoint.sh also uses it to download the agent binary
+#      on first run.
+GH_ENV_FILE=""
+if [[ "${GH_PAT_MODE}" == true && -n "${GH_PAT_VALUE}" ]]; then
+    info "GitHub PAT found in keychain – using PAT mode (~/.config/gh will not be mounted)"
+    ENV_ARGS+=("-e" "GH_PAT_MODE=1")
+    # Write the PAT to a private temp env-file so it does not appear in the
+    # docker run command line or `ps` output.  The file is removed after the
+    # container exits via a trap registered above.
+    GH_ENV_FILE="$(mktemp)"
+    chmod 600 "${GH_ENV_FILE}"
+    printf 'GH_TOKEN=%s\n' "${GH_PAT_VALUE}" > "${GH_ENV_FILE}"
+    GH_ENV_FILE_ARGS+=("--env-file" "${GH_ENV_FILE}")
+elif [[ -n "${GH_TOKEN_VALUE}" ]]; then
     info "Forwarding GitHub token from host gh CLI as GH_TOKEN"
     ENV_ARGS+=("-e" "GH_TOKEN=${GH_TOKEN_VALUE}")
 elif command -v gh &>/dev/null; then
@@ -330,5 +372,6 @@ docker run \
     "${MOUNTS[@]}" \
     "${ENV_ARGS[@]}" \
     "${ADO_ENV_FILE_ARGS[@]+"${ADO_ENV_FILE_ARGS[@]}"}" \
+    "${GH_ENV_FILE_ARGS[@]+"${GH_ENV_FILE_ARGS[@]}"}" \
     "${IMAGE_NAME}" \
     "${COPILOT_CLI_ARGS[@]+"${COPILOT_CLI_ARGS[@]}"}"

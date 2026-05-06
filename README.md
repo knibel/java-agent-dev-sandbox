@@ -16,7 +16,7 @@ servers all wired up automatically.
 | `gh` CLI (≥ 2.x) | `brew install gh` / <https://cli.github.com> |
 | Authenticated `gh` session | `gh auth login` |
 | `jq` (optional) | Used to auto-mount MCP server paths; `brew install jq` |
-| `secret-tool` (optional) | Used to read Azure DevOps PAT from the Linux keychain; `sudo apt install libsecret-tools` (Debian/Ubuntu) or `sudo dnf install libsecret` (Fedora/RHEL) |
+| `secret-tool` (optional) | Used to read GitHub or Azure DevOps PATs from the Linux keychain; `sudo apt install libsecret-tools` (Debian/Ubuntu) or `sudo dnf install libsecret` (Fedora/RHEL) |
 
 ---
 
@@ -82,7 +82,7 @@ parts as read-only volumes before handing control to the container:
 |---|---|---|---|
 | `~/.copilot/` | `/root/.copilot/` | read-only | Custom instructions & MCP config |
 | `~/.copilot/mcp-config.json` | parsed | — | Any absolute paths referenced by MCP servers are also mounted |
-| `~/.config/gh/` | `/root/.config/gh/` | read-only | GitHub / Copilot authentication token |
+| `~/.config/gh/` | `/root/.config/gh/` | read-only | GitHub / Copilot authentication token **(GitHub CLI mode only – not mounted in PAT mode)** |
 | `~/.local/share/gh/copilot/` | `/root/.local/share/gh/copilot/` | read-only | Pre-downloaded Copilot CLI binary (Linux hosts only; skips re-download) |
 | `~/.azure/` | `/root/.azure/` | read-write | Azure CLI credentials & MSAL token cache **(Azure CLI mode only – not mounted in PAT mode)** |
 | `<workspace>` (default: `$PWD`) | `/workspace/` | read-write | Your project files |
@@ -319,6 +319,50 @@ session with the `/lsp` slash commands:
 /lsp test java  # test that jdtls starts correctly
 /lsp reload     # reload LSP configs from disk
 ```
+
+---
+
+## GitHub authentication
+
+The sandbox supports two mutually exclusive authentication modes for GitHub /
+GitHub Copilot.  The mode is chosen automatically at start-up based on whether
+a PAT is stored in your Linux keychain.
+
+### Mode A – PAT mode (recommended, least-privilege)
+
+Store a scoped GitHub Personal Access Token in your Linux keychain once:
+
+```bash
+# Store the PAT (you will be prompted for the token value)
+secret-tool store --label "GitHub PAT" \
+                  service github-pat account default
+```
+
+When a PAT is found at container start:
+- The token is forwarded into the container as `GH_TOKEN` via a private
+  env-file (never visible in `ps` output or the Docker command line).
+- `~/.config/gh` is **not** mounted – the container has no access to your
+  broader GitHub CLI session or credentials.
+- The `gh` CLI and Copilot CLI inside the container automatically use
+  `GH_TOKEN` for all API calls.
+
+To remove the PAT and revert to GitHub CLI mode:
+
+```bash
+secret-tool clear service github-pat account default
+```
+
+> **Prerequisite:** `secret-tool` must be installed on the host
+> (`sudo apt install libsecret-tools` on Debian/Ubuntu).
+
+### Mode B – GitHub CLI mode (automatic fallback)
+
+When no PAT is found in the keychain (or `secret-tool` is not installed),
+`start-sandbox.sh` falls back to the original behaviour:
+- `~/.config/gh` is mounted **read-only** from the host.
+- The token from `gh auth token` is forwarded into the container as `GH_TOKEN`.
+- If no token is available, the entrypoint runs `gh auth login` before
+  launching Copilot.
 
 ---
 

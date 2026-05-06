@@ -112,15 +112,21 @@ if [[ -f "${SDKMAN_DIR:-/root/.sdkman}/bin/sdkman-init.sh" ]]; then
 fi
 
 # ── GitHub authentication ─────────────────────────────────────────────────────
-# If ~/.config/gh was not mounted from the host (or has no valid token), walk
-# the user through `gh auth login` before trying to start the Copilot CLI.
-# Without a token the CLI will fail immediately anyway, so this is friendlier.
+# Two modes, determined by whether start-sandbox.sh found a GitHub PAT in the
+# host Linux keychain (secret-tool) and set GH_PAT_MODE=1.
 #
-# Note: `gh auth status` only checks file-based credentials – it does NOT
-# recognise tokens supplied via GH_TOKEN / GITHUB_TOKEN.  Skip the prompt
-# when either of those env vars is already set (start-sandbox.sh forwards the
-# host token this way).
-if [[ -z "${GH_TOKEN:-}" && -z "${GITHUB_TOKEN:-}" ]] && ! gh auth status &>/dev/null; then
+# PAT mode  (GH_PAT_MODE=1):
+#   • GH_TOKEN is already set in the environment (forwarded by start-sandbox.sh
+#     via a private env-file).  No login is needed or desired.
+#   • The `gh` CLI automatically uses GH_TOKEN for all operations.
+#
+# GitHub CLI mode  (GH_PAT_MODE unset, fallback):
+#   • ~/.config/gh is mounted read-only from the host.
+#   • If neither GH_TOKEN nor GITHUB_TOKEN is set and no valid gh session
+#     exists, the user is prompted to log in via `gh auth login`.
+if [[ -n "${GH_PAT_MODE:-}" ]]; then
+    echo "ℹ  PAT mode: GitHub access via GH_TOKEN (~/.config/gh not mounted)"
+elif [[ -z "${GH_TOKEN:-}" && -z "${GITHUB_TOKEN:-}" ]] && ! gh auth status &>/dev/null; then
     echo ""
     echo "⚠  No GitHub authentication found."
     echo "   Please log in so the Copilot CLI can access the API."
