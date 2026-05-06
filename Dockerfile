@@ -6,6 +6,8 @@ FROM ubuntu:24.04
 ARG JAVA_VERSION=25.0.1-tem
 # Override GH_VERSION to pin the GitHub CLI release used in the image
 ARG GH_VERSION=2.89.0
+# Override GO_VERSION to pin the Go toolchain used to compile mcp-language-server
+ARG GO_VERSION=1.24.3
 
 # ── environment ──────────────────────────────────────────────────────────────
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -82,6 +84,41 @@ RUN curl -s https://get.sdkman.io | bash \
 COPY install-sdkman-candidates.sh /tmp/install-sdkman-candidates.sh
 RUN bash /tmp/install-sdkman-candidates.sh \
     && rm /tmp/install-sdkman-candidates.sh
+
+# ── Eclipse JDT Language Server (jdtls) ─────────────────────────────────────
+# Download the latest jdtls snapshot; provides Java code intelligence over LSP.
+# Best-effort: skipped silently when eclipse.org is unreachable so the image
+# still builds in network-restricted environments.
+RUN mkdir -p /opt/jdtls \
+    && curl -fsSL \
+        "https://download.eclipse.org/jdtls/snapshots/jdt-language-server-latest.tar.gz" \
+        -o /tmp/jdtls.tar.gz \
+    && tar -xzf /tmp/jdtls.tar.gz -C /opt/jdtls \
+    && rm /tmp/jdtls.tar.gz \
+    || echo "Note: jdtls could not be downloaded; Java LSP will not be available."
+
+# Install the jdtls launcher wrapper used by mcp-language-server.
+COPY jdtls.sh /usr/local/bin/jdtls
+RUN chmod +x /usr/local/bin/jdtls
+
+# ── mcp-language-server (LSP → MCP bridge) ───────────────────────────────────
+# Installs the bridge that exposes the jdtls Language Server as MCP tools
+# (definition, references, diagnostics, hover, rename, …) so that the Copilot
+# CLI can call them directly.
+#
+# Strategy: download Go, compile the binary, then remove Go to keep the image
+# lean (all in one RUN layer so the intermediate files don't bloat the image).
+# Best-effort: the whole step is skipped when golang.org / GitHub is unreachable.
+RUN ARCH=$(dpkg --print-architecture) \
+    && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" \
+        -o /tmp/go.tar.gz \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm /tmp/go.tar.gz \
+    && GOPATH=/root/go /usr/local/go/bin/go install \
+        github.com/isaacphi/mcp-language-server@latest \
+    && cp /root/go/bin/mcp-language-server /usr/local/bin/mcp-language-server \
+    && rm -rf /usr/local/go /root/go /root/.cache/go-build \
+    || echo "Note: Go / mcp-language-server could not be installed; Java LSP navigation will not be available."
 
 # Make SDKMAN candidate binaries available without sourcing init in every RUN
 ENV PATH="\

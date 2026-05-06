@@ -230,6 +230,97 @@ sdk use java 23.0.2-tem
 
 ---
 
+## Java code navigation (LSP)
+
+The image bundles two complementary layers of Java code intelligence, so
+Copilot can navigate Java projects whether MCP is enabled or not.
+
+| Tool | Role |
+|---|---|
+| [Eclipse JDT Language Server](https://github.com/eclipse/eclipse.jdt.ls) (`jdtls`) | Java Language Server – type-aware code intelligence |
+| [`mcp-language-server`](https://github.com/isaacphi/mcp-language-server) | LSP → MCP bridge – exposes LSP capabilities as Copilot MCP tools |
+
+### Layer 1 – Native LSP skill (always active)
+
+Copilot CLI has built-in LSP support: when a language server is registered in
+`~/.copilot/lsp-config.json`, Copilot uses it automatically for any operation
+that benefits from semantic code understanding.
+
+At container start `entrypoint.sh` registers `jdtls` directly as the native
+Java language server:
+
+```jsonc
+// ~/.copilot/lsp-config.json (auto-injected)
+{
+  "lspServers": {
+    "java": {
+      "command": "jdtls",
+      "args": [],
+      "fileExtensions": { ".java": "java" }
+    }
+  }
+}
+```
+
+Native LSP operations available to Copilot:
+
+| Operation | What Copilot can do |
+|---|---|
+| Go to definition | Find where a symbol is defined |
+| Find references | Find every usage of a symbol |
+| Hover | Type info and Javadoc for a symbol |
+| Rename | Rename a symbol across the entire project |
+| Document symbols | List all symbols in a file |
+| Workspace symbol search | Search for symbols by name |
+| Go to implementation | Find implementations of an interface |
+| Incoming / outgoing calls | Navigate call graphs |
+
+### Layer 2 – MCP tool-server (when MCP is enabled)
+
+`entrypoint.sh` also registers `jdtls` via the `mcp-language-server` bridge
+in `~/.copilot/mcp-config.json`, giving Copilot explicit MCP tool calls:
+
+```jsonc
+// ~/.copilot/mcp-config.json (auto-injected)
+{
+  "mcpServers": {
+    "java-language-server": {
+      "command": "mcp-language-server",
+      "args": ["--workspace", "/workspace", "--lsp", "jdtls"]
+    }
+  }
+}
+```
+
+MCP tools exposed: `definition` · `references` · `diagnostics` · `hover` ·
+`rename_symbol` · `edit_file`
+
+> **Note:** both tools are installed from the internet during `docker build`.
+> If the build runs in a network-restricted environment the tools are silently
+> skipped and Java LSP will not be available; all other sandbox functionality
+> is unaffected.
+
+### Overriding the Java LSP configuration
+
+The entrypoint only injects each entry when the key is **not already present**,
+so you can override either layer from your host-side config files:
+
+| To override… | Edit this file on your host | Key to add |
+|---|---|---|
+| Native LSP skill | `~/.copilot/lsp-config.json` | `lspServers.java` |
+| MCP tool-server | `~/.copilot/mcp-config.json` | `mcpServers.java-language-server` |
+
+You can also verify or reload the native LSP server from inside a Copilot CLI
+session with the `/lsp` slash commands:
+
+```
+/lsp            # show status of all configured LSP servers
+/lsp test java  # test that jdtls starts correctly
+/lsp reload     # reload LSP configs from disk
+```
+
+---
+
 ## Azure CLI
 
 `~/.azure` is created on the host (if it does not exist) and mounted
