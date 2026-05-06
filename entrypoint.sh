@@ -27,6 +27,40 @@ if [[ -d /root/.copilot-host ]]; then
         -exec cp -r {} /root/.copilot/ \;
 fi
 
+# ── Java LSP MCP server ───────────────────────────────────────────────────────
+# Automatically register the Eclipse JDT Language Server as an MCP tool-server
+# so the Copilot CLI can navigate Java code (go-to-definition, references,
+# diagnostics, hover, rename, …) without any manual configuration.
+#
+# The entry is only injected when:
+#   • jq        – available (needed to read/write the JSON config)
+#   • mcp-language-server – installed in the image (LSP → MCP bridge)
+#   • jdtls     – installed in the image (Eclipse JDT Language Server wrapper)
+#   • the "java-language-server" key is NOT already present in the config
+#     (lets users override the entry in their own ~/.copilot/mcp-config.json)
+if command -v jq &>/dev/null \
+        && command -v mcp-language-server &>/dev/null \
+        && command -v jdtls &>/dev/null; then
+    MCP_CONFIG="/root/.copilot/mcp-config.json"
+    mkdir -p /root/.copilot
+    # Seed a minimal config when none was copied from the host.
+    if [[ ! -f "${MCP_CONFIG}" ]]; then
+        echo '{"mcpServers":{}}' > "${MCP_CONFIG}"
+    fi
+    # Add the Java LSP entry only when not already present.
+    if ! jq -e '.mcpServers["java-language-server"] // empty' \
+            "${MCP_CONFIG}" &>/dev/null; then
+        tmp_cfg="$(mktemp)"
+        jq '.mcpServers["java-language-server"] = {
+            "command": "mcp-language-server",
+            "args": ["--workspace", "/workspace", "--lsp", "jdtls"]
+        }' "${MCP_CONFIG}" > "${tmp_cfg}" \
+            && mv "${tmp_cfg}" "${MCP_CONFIG}" \
+            || rm -f "${tmp_cfg}"
+        echo "✓  Java LSP registered (mcp-language-server → jdtls)"
+    fi
+fi
+
 # ── SDKMAN ───────────────────────────────────────────────────────────────────
 # sdkman-init.sh references variables (e.g. SDKMAN_CANDIDATES_API) before they
 # are assigned, which conflicts with `set -u`.  Disable that check temporarily.

@@ -230,6 +230,55 @@ sdk use java 23.0.2-tem
 
 ---
 
+## Java code navigation (LSP)
+
+The image bundles two tools that give Copilot semantic understanding of Java
+codebases:
+
+| Tool | Role |
+|---|---|
+| [Eclipse JDT Language Server](https://github.com/eclipse/eclipse.jdt.ls) (`jdtls`) | Java Language Server – type-aware code intelligence |
+| [`mcp-language-server`](https://github.com/isaacphi/mcp-language-server) | LSP → MCP bridge – exposes LSP capabilities as Copilot tools |
+
+When the container starts, `entrypoint.sh` automatically registers a
+`java-language-server` entry in `~/.copilot/mcp-config.json`.  This gives
+the Copilot CLI access to the following tools for any Java project mounted
+at `/workspace`:
+
+* **`definition`** – jump to the source definition of any symbol
+* **`references`** – find all usages of a symbol across the codebase
+* **`diagnostics`** – compiler errors and warnings for a specific file
+* **`hover`** – type information and Javadoc for a symbol at a given position
+* **`rename_symbol`** – rename a symbol project-wide
+* **`edit_file`** – reliable line-number–based file edits
+
+> **Note:** both tools are installed from the internet during `docker build`.
+> If the build runs in a network-restricted environment the tools are silently
+> skipped and Java LSP will not be available; all other sandbox functionality
+> is unaffected.
+
+### Overriding the Java LSP configuration
+
+To customise or replace the built-in entry, add a
+`java-language-server` key to your host-side `~/.copilot/mcp-config.json`
+before starting the sandbox.  The entrypoint only injects the default entry
+when no `java-language-server` key is present.
+
+```jsonc
+// ~/.copilot/mcp-config.json
+{
+  "mcpServers": {
+    "java-language-server": {
+      "command": "mcp-language-server",
+      "args": ["--workspace", "/workspace", "--lsp", "jdtls"],
+      "env": { "LOG_LEVEL": "DEBUG" }
+    }
+  }
+}
+```
+
+---
+
 ## Azure CLI
 
 `~/.azure` is created on the host (if it does not exist) and mounted
