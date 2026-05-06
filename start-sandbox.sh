@@ -231,17 +231,72 @@ mkdir -p "${COPILOT_BINARY_CACHE}"
 info "Copilot cache  ${COPILOT_BINARY_CACHE}  →  /root/.local/share/gh/copilot  (rw)"
 MOUNTS+=("-v" "${COPILOT_BINARY_CACHE}:/root/.local/share/gh/copilot:rw")
 
-# 5. Azure CLI credentials (refresh token, MSAL cache, etc.)
-#    Mounted read-write so the Azure CLI can persist refreshed access tokens
-#    back to the host cache.  Without write access, token-refresh calls fail
-#    silently and any MCP server that invokes `az` (e.g. ado-git) will error.
-mkdir -p "${HOME}/.azure"
-add_mount "${HOME}/.azure" "/root/.azure" "rw"
+# ── collect environment variables ─────────────────────────────────────────────
+declare -a ENV_ARGS=()
+
+# 5. Azure DevOps credentials – two mutually exclusive modes:
+#
+#    Mode A – PAT from Linux keychain (preferred, least-privilege):
+#      Read a Personal Access Token stored with:
+#        secret-tool store --label "Azure DevOps PAT" \
+#                          service azure-devops-pat account default
+#      When a PAT is found:
+#        • The token is forwarded as AZURE_DEVOPS_EXT_PAT (used by `az devops`
+#          and many ADO MCP servers).
+#        • ADO_PAT_MODE=1 is set so entrypoint.sh knows to block `az`.
+#        • The host ~/.azure directory is NOT mounted, keeping the container
+#          isolated from broader Azure CLI credentials.
+#
+#    Mode B – Azure CLI credentials (automatic fallback):
+#      When no PAT is found (or secret-tool is not installed), ~/.azure is
+#      mounted read-write so the Azure CLI can read cached tokens and persist
+#      refreshed ones.  The container's `az login` prompt is preserved.
+ADO_PAT_VALUE=""
+if command -v secret-tool &>/dev/null; then
+    ADO_PAT_VALUE="$(secret-tool lookup service azure-devops-pat account default 2>/dev/null || true)"
+fi
+
+if [[ -n "${ADO_PAT_VALUE}" ]]; then
+    info "Azure DevOps PAT found in keychain – using PAT mode (az CLI will be blocked inside the container)"
+    ENV_ARGS+=("-e" "ADO_PAT_MODE=1")
+    # Write the PAT to a private temp env-file so it does not appear in the
+    # docker run command line or `ps` output.  The file is removed after the
+    # container exits via a trap registered below.
+    ADO_ENV_FILE="$(mktemp)"
+    chmod 600 "${ADO_ENV_FILE}"
+    printf 'AZURE_DEVOPS_EXT_PAT=%s\n' "${ADO_PAT_VALUE}" > "${ADO_ENV_FILE}"
+else
+    if ! command -v secret-tool &>/dev/null; then
+        info "secret-tool not installed – falling back to Azure CLI credentials (~/.azure mount)"
+        info "Install libsecret-tools and store a PAT to use least-privilege PAT mode:"
+        info "  secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
+    else
+        info "No Azure DevOps PAT found in keychain – falling back to Azure CLI credentials (~/.azure mount)"
+        info "To use least-privilege PAT mode:"
+        info "  secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
+    fi
+    mkdir -p "${HOME}/.azure"
+    add_mount "${HOME}/.azure" "/root/.azure" "rw"
+fi
+
+# Register a cleanup trap to remove the PAT env-file (if created) once the
+# container exits, regardless of whether it exits normally or is interrupted.
+ADO_ENV_FILE="${ADO_ENV_FILE:-}"
+cleanup_ado_env_file() {
+    # Guard: only delete if the path was set and is under /tmp (safety check).
+    [[ -n "${ADO_ENV_FILE}" && "${ADO_ENV_FILE}" =~ ^/tmp/ ]] && rm -f "${ADO_ENV_FILE}"
+}
+trap cleanup_ado_env_file EXIT INT TERM
+
+# Build an optional --env-file argument for the PAT (empty when not in PAT mode).
+declare -a ADO_ENV_FILE_ARGS=()
+if [[ -n "${ADO_ENV_FILE}" ]]; then
+    ADO_ENV_FILE_ARGS+=("--env-file" "${ADO_ENV_FILE}")
+fi
 
 # 6. GitHub token – forward into the container so the Copilot CLI can
 #    authenticate without mounting the host keyring (not available inside the
 #    container), and so entrypoint.sh can download the agent binary on first run.
-declare -a ENV_ARGS=()
 if [[ -n "${GH_TOKEN_VALUE}" ]]; then
     info "Forwarding GitHub token from host gh CLI as GH_TOKEN"
     ENV_ARGS+=("-e" "GH_TOKEN=${GH_TOKEN_VALUE}")
@@ -274,5 +329,6 @@ docker run \
     --name "${CONTAINER_NAME}" \
     "${MOUNTS[@]}" \
     "${ENV_ARGS[@]}" \
+    "${ADO_ENV_FILE_ARGS[@]+"${ADO_ENV_FILE_ARGS[@]}"}" \
     "${IMAGE_NAME}" \
     "${COPILOT_CLI_ARGS[@]+"${COPILOT_CLI_ARGS[@]}"}"
