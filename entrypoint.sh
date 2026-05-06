@@ -51,13 +51,15 @@ if command -v jq &>/dev/null \
     if ! jq -e '.mcpServers["java-language-server"] // empty' \
             "${MCP_CONFIG}" &>/dev/null; then
         tmp_cfg="$(mktemp)"
-        jq '.mcpServers["java-language-server"] = {
+        if jq '.mcpServers["java-language-server"] = {
             "command": "mcp-language-server",
             "args": ["--workspace", "/workspace", "--lsp", "jdtls"]
         }' "${MCP_CONFIG}" > "${tmp_cfg}" \
-            && mv "${tmp_cfg}" "${MCP_CONFIG}" \
-            || rm -f "${tmp_cfg}"
-        echo "✓  Java LSP registered (mcp-language-server → jdtls)"
+                && mv "${tmp_cfg}" "${MCP_CONFIG}"; then
+            echo "✓  Java LSP registered (mcp-language-server → jdtls)"
+        else
+            rm -f "${tmp_cfg}"
+        fi
     fi
 fi
 
