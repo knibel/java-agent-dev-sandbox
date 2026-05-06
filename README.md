@@ -16,6 +16,7 @@ servers all wired up automatically.
 | `gh` CLI (≥ 2.x) | `brew install gh` / <https://cli.github.com> |
 | Authenticated `gh` session | `gh auth login` |
 | `jq` (optional) | Used to auto-mount MCP server paths; `brew install jq` |
+| `secret-tool` (optional) | Used to read Azure DevOps PAT from the Linux keychain; `sudo apt install libsecret-tools` (Debian/Ubuntu) or `sudo dnf install libsecret` (Fedora/RHEL) |
 
 ---
 
@@ -83,7 +84,7 @@ parts as read-only volumes before handing control to the container:
 | `~/.copilot/mcp-config.json` | parsed | — | Any absolute paths referenced by MCP servers are also mounted |
 | `~/.config/gh/` | `/root/.config/gh/` | read-only | GitHub / Copilot authentication token |
 | `~/.local/share/gh/copilot/` | `/root/.local/share/gh/copilot/` | read-only | Pre-downloaded Copilot CLI binary (Linux hosts only; skips re-download) |
-| `~/.azure/` | `/root/.azure/` | read-write | Azure CLI credentials & MSAL token cache |
+| `~/.azure/` | `/root/.azure/` | read-write | Azure CLI credentials & MSAL token cache **(Azure CLI mode only – not mounted in PAT mode)** |
 | `<workspace>` (default: `$PWD`) | `/workspace/` | read-write | Your project files |
 
 ---
@@ -321,16 +322,48 @@ session with the `/lsp` slash commands:
 
 ---
 
-## Azure CLI
+## Azure DevOps authentication
 
-`~/.azure` is created on the host (if it does not exist) and mounted
-**read-write** into the container so the Azure CLI can persist refreshed access
-tokens back to the host cache across container restarts.
+The sandbox supports two mutually exclusive authentication modes for Azure
+DevOps.  The mode is chosen automatically at start-up based on whether a PAT
+is stored in your Linux keychain.
 
-If `az` is installed in the container but no active subscription is found at
-start-up, the entrypoint automatically runs `az login` before launching
-Copilot.  This ensures that MCP servers that call Azure DevOps APIs
-(e.g. `ado-git`) have a valid session from the very first tool call.
+### Mode A – PAT mode (recommended, least-privilege)
+
+Store a scoped Azure DevOps Personal Access Token in your Linux keychain once:
+
+```bash
+# Store the PAT (you will be prompted for the token value)
+secret-tool store --label "Azure DevOps PAT" \
+                  service azure-devops-pat account default
+```
+
+When a PAT is found at container start:
+- The token is forwarded into the container as `AZURE_DEVOPS_EXT_PAT`
+  (recognised by `az devops` and most ADO MCP servers).
+- `~/.azure` is **not** mounted – the container has no access to your broader
+  Azure CLI credentials.
+- The `az` binary inside the container is replaced by a wrapper that refuses
+  all invocations with a clear error message, preventing accidental use of
+  Azure CLI with broader-than-intended permissions.
+
+To remove the PAT and revert to Azure CLI mode:
+
+```bash
+secret-tool clear service azure-devops-pat account default
+```
+
+> **Prerequisite:** `secret-tool` must be installed on the host
+> (`sudo apt install libsecret-tools` on Debian/Ubuntu).
+
+### Mode B – Azure CLI mode (automatic fallback)
+
+When no PAT is found in the keychain (or `secret-tool` is not installed),
+`start-sandbox.sh` falls back to the original behaviour:
+- `~/.azure` is mounted **read-write** so the Azure CLI can read cached tokens
+  and persist refreshed ones across container restarts.
+- If `az` is present but no valid subscription is active at start-up, the
+  entrypoint automatically runs `az login` before launching Copilot.
 
 ---
 

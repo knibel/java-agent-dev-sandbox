@@ -131,14 +131,40 @@ if [[ -z "${GH_TOKEN:-}" && -z "${GITHUB_TOKEN:-}" ]] && ! gh auth status &>/dev
 fi
 
 # ── Azure authentication ──────────────────────────────────────────────────────
-# If the Azure CLI is present and no valid subscription is active, walk the user
-# through `az login` before launching Copilot.  MCP servers that call Azure
-# DevOps APIs (e.g. ado-git) will fail immediately without a valid session, so
-# catching this early gives a much friendlier experience.
+# Two modes, determined by whether start-sandbox.sh found a PAT in the host
+# Linux keychain (secret-tool) and set ADO_PAT_MODE=1.
 #
-# ~/.azure is mounted read-write by start-sandbox.sh so that refreshed tokens
-# are persisted back to the host cache across container restarts.
-if command -v az &>/dev/null && ! az account show &>/dev/null 2>&1; then
+# PAT mode  (ADO_PAT_MODE=1):
+#   • AZURE_DEVOPS_EXT_PAT is already set in the environment (forwarded by
+#     start-sandbox.sh).  No az login is needed or desired.
+#   • az is shadowed by a wrapper script that refuses all invocations with a
+#     clear error message, preventing MCP servers or the user from accidentally
+#     calling az with broader-than-intended credentials.
+#
+# Azure CLI mode  (ADO_PAT_MODE unset, fallback):
+#   • ~/.azure is mounted read-write from the host.
+#   • If az is present but no valid subscription is active, az login is run
+#     before launching Copilot so that ADO MCP servers (e.g. ado-git) have a
+#     working session from the very first tool call.
+if [[ -n "${ADO_PAT_MODE:-}" ]]; then
+    echo "ℹ  PAT mode: Azure DevOps access via AZURE_DEVOPS_EXT_PAT (az CLI is disabled)"
+    # Shadow the az binary so any accidental `az` invocation fails with a
+    # clear message instead of operating silently on a different auth context.
+    # Write atomically: stage to a temp file, restrict permissions, add content,
+    # make executable, then move into place.
+    _az_wrapper="$(mktemp)"
+    chmod 600 "${_az_wrapper}"
+    cat > "${_az_wrapper}" << 'WRAPPER'
+#!/usr/bin/env bash
+echo "⛔  az CLI is disabled in PAT mode." >&2
+echo "   Azure DevOps access uses the AZURE_DEVOPS_EXT_PAT environment variable." >&2
+echo "   To re-enable az CLI, remove the PAT from your host keychain:" >&2
+echo "     secret-tool clear service azure-devops-pat account default" >&2
+exit 1
+WRAPPER
+    chmod +x "${_az_wrapper}"
+    mv "${_az_wrapper}" /usr/local/bin/az
+elif command -v az &>/dev/null && ! az account show &>/dev/null 2>&1; then
     echo ""
     echo "⚠  No Azure authentication found."
     echo "   MCP servers that use Azure DevOps (e.g. ado-git) require an Azure login."
