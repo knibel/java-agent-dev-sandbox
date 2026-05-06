@@ -232,25 +232,68 @@ sdk use java 23.0.2-tem
 
 ## Java code navigation (LSP)
 
-The image bundles two tools that give Copilot semantic understanding of Java
-codebases:
+The image bundles two complementary layers of Java code intelligence, so
+Copilot can navigate Java projects whether MCP is enabled or not.
 
 | Tool | Role |
 |---|---|
 | [Eclipse JDT Language Server](https://github.com/eclipse/eclipse.jdt.ls) (`jdtls`) | Java Language Server – type-aware code intelligence |
-| [`mcp-language-server`](https://github.com/isaacphi/mcp-language-server) | LSP → MCP bridge – exposes LSP capabilities as Copilot tools |
+| [`mcp-language-server`](https://github.com/isaacphi/mcp-language-server) | LSP → MCP bridge – exposes LSP capabilities as Copilot MCP tools |
 
-When the container starts, `entrypoint.sh` automatically registers a
-`java-language-server` entry in `~/.copilot/mcp-config.json`.  This gives
-the Copilot CLI access to the following tools for any Java project mounted
-at `/workspace`:
+### Layer 1 – Native LSP skill (always active)
 
-* **`definition`** – jump to the source definition of any symbol
-* **`references`** – find all usages of a symbol across the codebase
-* **`diagnostics`** – compiler errors and warnings for a specific file
-* **`hover`** – type information and Javadoc for a symbol at a given position
-* **`rename_symbol`** – rename a symbol project-wide
-* **`edit_file`** – reliable line-number–based file edits
+Copilot CLI has built-in LSP support: when a language server is registered in
+`~/.copilot/lsp-config.json`, Copilot uses it automatically for any operation
+that benefits from semantic code understanding.
+
+At container start `entrypoint.sh` registers `jdtls` directly as the native
+Java language server:
+
+```jsonc
+// ~/.copilot/lsp-config.json (auto-injected)
+{
+  "lspServers": {
+    "java": {
+      "command": "jdtls",
+      "args": [],
+      "fileExtensions": { ".java": "java" }
+    }
+  }
+}
+```
+
+Native LSP operations available to Copilot:
+
+| Operation | What Copilot can do |
+|---|---|
+| Go to definition | Find where a symbol is defined |
+| Find references | Find every usage of a symbol |
+| Hover | Type info and Javadoc for a symbol |
+| Rename | Rename a symbol across the entire project |
+| Document symbols | List all symbols in a file |
+| Workspace symbol search | Search for symbols by name |
+| Go to implementation | Find implementations of an interface |
+| Incoming / outgoing calls | Navigate call graphs |
+
+### Layer 2 – MCP tool-server (when MCP is enabled)
+
+`entrypoint.sh` also registers `jdtls` via the `mcp-language-server` bridge
+in `~/.copilot/mcp-config.json`, giving Copilot explicit MCP tool calls:
+
+```jsonc
+// ~/.copilot/mcp-config.json (auto-injected)
+{
+  "mcpServers": {
+    "java-language-server": {
+      "command": "mcp-language-server",
+      "args": ["--workspace", "/workspace", "--lsp", "jdtls"]
+    }
+  }
+}
+```
+
+MCP tools exposed: `definition` · `references` · `diagnostics` · `hover` ·
+`rename_symbol` · `edit_file`
 
 > **Note:** both tools are installed from the internet during `docker build`.
 > If the build runs in a network-restricted environment the tools are silently
@@ -259,22 +302,21 @@ at `/workspace`:
 
 ### Overriding the Java LSP configuration
 
-To customise or replace the built-in entry, add a
-`java-language-server` key to your host-side `~/.copilot/mcp-config.json`
-before starting the sandbox.  The entrypoint only injects the default entry
-when no `java-language-server` key is present.
+The entrypoint only injects each entry when the key is **not already present**,
+so you can override either layer from your host-side config files:
 
-```jsonc
-// ~/.copilot/mcp-config.json
-{
-  "mcpServers": {
-    "java-language-server": {
-      "command": "mcp-language-server",
-      "args": ["--workspace", "/workspace", "--lsp", "jdtls"],
-      "env": { "LOG_LEVEL": "DEBUG" }
-    }
-  }
-}
+| To override… | Edit this file on your host | Key to add |
+|---|---|---|
+| Native LSP skill | `~/.copilot/lsp-config.json` | `lspServers.java` |
+| MCP tool-server | `~/.copilot/mcp-config.json` | `mcpServers.java-language-server` |
+
+You can also verify or reload the native LSP server from inside a Copilot CLI
+session with the `/lsp` slash commands:
+
+```
+/lsp            # show status of all configured LSP servers
+/lsp test java  # test that jdtls starts correctly
+/lsp reload     # reload LSP configs from disk
 ```
 
 ---

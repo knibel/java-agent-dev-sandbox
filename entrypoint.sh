@@ -63,6 +63,44 @@ if command -v jq &>/dev/null \
     fi
 fi
 
+# ── Java LSP native skill (fallback when MCP is disabled) ────────────────────
+# Copilot CLI has built-in LSP support via ~/.copilot/lsp-config.json.
+# When MCP is disabled (or not available), Copilot falls back to this native
+# language-server channel for go-to-definition, references, hover, rename, etc.
+#
+# We register jdtls directly (no mcp-language-server bridge needed) so that
+# the native skill works independently of the MCP configuration above.
+# The entry is only injected when:
+#   • jq    – available
+#   • jdtls – installed in the image
+#   • the "java" server key is NOT already present in the config
+#     (lets users supply their own ~/.copilot/lsp-config.json)
+if command -v jq &>/dev/null && command -v jdtls &>/dev/null; then
+    LSP_CONFIG="/root/.copilot/lsp-config.json"
+    mkdir -p /root/.copilot
+    # Seed a minimal config when none exists.
+    if [[ ! -f "${LSP_CONFIG}" ]]; then
+        echo '{"lspServers":{}}' > "${LSP_CONFIG}"
+    fi
+    # Add the Java entry only when not already present.
+    if ! jq -e '.lspServers["java"] // empty' "${LSP_CONFIG}" &>/dev/null; then
+        tmp_lsp="$(mktemp)"
+        if jq '.lspServers["java"] = {
+            "command": "jdtls",
+            "args": [],
+            "fileExtensions": { ".java": "java" }
+        }' "${LSP_CONFIG}" > "${tmp_lsp}"; then
+            if mv "${tmp_lsp}" "${LSP_CONFIG}"; then
+                echo "✓  Java LSP native skill registered (jdtls)"
+            else
+                rm -f "${tmp_lsp}"
+            fi
+        else
+            rm -f "${tmp_lsp}"
+        fi
+    fi
+fi
+
 # ── SDKMAN ───────────────────────────────────────────────────────────────────
 # sdkman-init.sh references variables (e.g. SDKMAN_CANDIDATES_API) before they
 # are assigned, which conflicts with `set -u`.  Disable that check temporarily.
