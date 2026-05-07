@@ -137,10 +137,7 @@ elif [[ -z "${GH_TOKEN:-}" && -z "${GITHUB_TOKEN:-}" ]] && ! gh auth status &>/d
 fi
 
 # ── Azure authentication ──────────────────────────────────────────────────────
-# Two modes, determined by whether start-sandbox.sh found a PAT in the host
-# Linux keychain (secret-tool) and set ADO_PAT_MODE=1.
-#
-# PAT mode  (ADO_PAT_MODE=1):
+# Azure DevOps PAT mode (ADO_PAT_MODE=1):
 #   • AZURE_DEVOPS_EXT_PAT is already set in the environment (forwarded by
 #     start-sandbox.sh).  No az login is needed or desired.
 #   • az is shadowed by a wrapper script that passes Azure DevOps extension
@@ -149,12 +146,6 @@ fi
 #     authenticate via AZURE_DEVOPS_EXT_PAT) while refusing all other az
 #     invocations, preventing MCP servers or the user from accidentally
 #     calling az with broader-than-intended credentials.
-#
-# Azure CLI mode  (ADO_PAT_MODE unset, fallback):
-#   • ~/.azure is mounted read-write from the host.
-#   • If az is present but no valid subscription is active, az login is run
-#     before launching Copilot so that ADO MCP servers (e.g. ado-git) have a
-#     working session from the very first tool call.
 if [[ -n "${ADO_PAT_MODE:-}" ]]; then
     echo "ℹ  PAT mode: Azure DevOps access via AZURE_DEVOPS_EXT_PAT (only Azure DevOps az command groups allowed)"
     # Shadow the az binary so that broader Azure CLI commands fail with a clear
@@ -186,14 +177,10 @@ exit 1
 WRAPPER
     chmod +x "${_az_wrapper}"
     mv "${_az_wrapper}" /usr/local/bin/az
-elif command -v az &>/dev/null && ! az account show &>/dev/null 2>&1; then
-    echo ""
-    echo "⚠  No Azure authentication found."
-    echo "   MCP servers that use Azure DevOps (e.g. ado-git) require an Azure login."
-    echo "   Please log in now (a browser tab will open, or use --use-device-code)."
-    echo ""
-    az login
-    echo ""
+else
+    echo "⚠  Azure DevOps PAT mode is required, but ADO_PAT_MODE is not set."
+    echo "   Start the sandbox with a stored PAT:"
+    echo "     secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
 fi
 
 # ── ensure Copilot CLI agent binary is installed ─────────────────────────────
