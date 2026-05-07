@@ -143,9 +143,10 @@ fi
 # PAT mode  (ADO_PAT_MODE=1):
 #   • AZURE_DEVOPS_EXT_PAT is already set in the environment (forwarded by
 #     start-sandbox.sh).  No az login is needed or desired.
-#   • az is shadowed by a wrapper script that refuses all invocations with a
-#     clear error message, preventing MCP servers or the user from accidentally
-#     calling az with broader-than-intended credentials.
+#   • az is shadowed by a wrapper script that passes `az devops` commands
+#     through to the real binary (they authenticate via AZURE_DEVOPS_EXT_PAT)
+#     while refusing all other az invocations, preventing MCP servers or the
+#     user from accidentally calling az with broader-than-intended credentials.
 #
 # Azure CLI mode  (ADO_PAT_MODE unset, fallback):
 #   • ~/.azure is mounted read-write from the host.
@@ -153,18 +154,28 @@ fi
 #     before launching Copilot so that ADO MCP servers (e.g. ado-git) have a
 #     working session from the very first tool call.
 if [[ -n "${ADO_PAT_MODE:-}" ]]; then
-    echo "ℹ  PAT mode: Azure DevOps access via AZURE_DEVOPS_EXT_PAT (az CLI is disabled)"
-    # Shadow the az binary so any accidental `az` invocation fails with a
-    # clear message instead of operating silently on a different auth context.
+    echo "ℹ  PAT mode: Azure DevOps access via AZURE_DEVOPS_EXT_PAT (only az devops commands allowed)"
+    # Shadow the az binary so that broader Azure CLI commands fail with a clear
+    # message instead of operating silently on a different auth context.
+    # Exception: `az devops` subcommands are passed through to the real binary
+    # because they authenticate exclusively via AZURE_DEVOPS_EXT_PAT (already
+    # set in the environment) and do not touch the broader Azure credential
+    # store – they are exactly what the ADO skills need in PAT mode.
     # Write atomically: stage to a temp file, restrict permissions, add content,
     # make executable, then move into place.
+    _real_az="$(command -v az)"
     _az_wrapper="$(mktemp)"
     chmod 600 "${_az_wrapper}"
-    cat > "${_az_wrapper}" << 'WRAPPER'
+    cat > "${_az_wrapper}" << WRAPPER
 #!/usr/bin/env bash
+# In PAT mode, only 'az devops' commands are permitted.
+if [[ "\${1:-}" == "devops" ]]; then
+    exec "${_real_az}" "\$@"
+fi
 echo "⛔  az CLI is disabled in PAT mode." >&2
 echo "   Azure DevOps access uses the AZURE_DEVOPS_EXT_PAT environment variable." >&2
-echo "   To re-enable az CLI, remove the PAT from your host keychain:" >&2
+echo "   Only 'az devops' subcommands are permitted in PAT mode." >&2
+echo "   To re-enable full az CLI, remove the PAT from your host keychain:" >&2
 echo "     secret-tool clear service azure-devops-pat account default" >&2
 exit 1
 WRAPPER
