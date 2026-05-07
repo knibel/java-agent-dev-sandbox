@@ -110,7 +110,8 @@ shell_escape() {
 strip_wrapping_quotes() {
     local value="$1"
 
-    if [[ -n "${value}" && "${value:0:1}" == "${value: -1}" ]] \
+    if [[ -n "${value}" ]] \
+            && [[ "${value:0:1}" == "${value: -1}" ]] \
             && [[ "${value:0:1}" == "'" || "${value:0:1}" == '"' ]]; then
         printf '%s' "${value:1:-1}"
     else
@@ -153,7 +154,7 @@ write_shell_block() {
         skip { next }
         $0 == legacy { skip_legacy=1; next }
         # Older installs wrote a single marker line followed by one sandbox alias line.
-        skip_legacy && $0 ~ /^alias[[:space:]]+[A-Za-z0-9_-]+=.*start-sandbox\.sh/ { skip_legacy=0; next }
+        skip_legacy && $0 ~ /^alias[[:space:]]+[^[:space:]=]+=.*start-sandbox\.sh/ { skip_legacy=0; next }
         skip_legacy { skip_legacy=0 }
         { print }
     ' "${rc_file}" > "${tmp_file}"
