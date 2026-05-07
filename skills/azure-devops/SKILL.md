@@ -91,7 +91,7 @@ az devops invoke \
 if [[ -f "${OUTFILE}" ]]; then
     cat "${OUTFILE}"
 else
-    echo "Failed to fetch /<PATH/TO/FILE>: az devops invoke did not create ${OUTFILE}" >&2
+    echo "Failed to fetch file: az devops invoke did not create ${OUTFILE}" >&2
     rm -f "${OUTFILE}"
     exit 1
 fi
