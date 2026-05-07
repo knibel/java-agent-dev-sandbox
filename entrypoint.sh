@@ -76,9 +76,9 @@ fi
 if command -v jq &>/dev/null && command -v npx &>/dev/null && [[ -n "${ADO_PAT_MODE:-}" ]]; then
     # The official server expects PERSONAL_ACCESS_TOKEN to be base64(email:pat).
     # The launcher provides raw PAT via AZURE_DEVOPS_EXT_PAT.
-    # "mcp" is a non-empty placeholder username; ADO PAT auth uses only the PAT.
     if [[ -z "${PERSONAL_ACCESS_TOKEN:-}" && -n "${AZURE_DEVOPS_EXT_PAT:-}" ]]; then
         export PERSONAL_ACCESS_TOKEN
+        # "mcp" is a non-empty placeholder username; ADO PAT auth uses only the PAT.
         PERSONAL_ACCESS_TOKEN="$(printf 'mcp:%s' "${AZURE_DEVOPS_EXT_PAT}" | base64 -w 0)"
     fi
 
@@ -90,7 +90,8 @@ if command -v jq &>/dev/null && command -v npx &>/dev/null && [[ -n "${ADO_PAT_M
         fi
         if ! jq -e '.mcpServers["azure-devops"] // empty' "${MCP_CONFIG}" &>/dev/null; then
             tmp_cfg="$(mktemp)"
-            # Restrict loaded tools to the domains needed for repo/PR/file workflows.
+            # Domain flags (-d) limit which ADO tool groups are exposed; tools=["*"]
+            # then enables all tools within those selected domains only.
             if jq --arg org "${AZURE_DEVOPS_ORG}" '.mcpServers["azure-devops"] = {
                 "command": "npx",
                 "args": ["-y", "@azure-devops/mcp", $org, "--authentication", "pat", "-d", "core", "-d", "repositories", "-d", "search"],
