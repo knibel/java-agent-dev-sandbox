@@ -107,6 +107,17 @@ shell_escape() {
     printf '%q' "$1"
 }
 
+strip_wrapping_quotes() {
+    local value="$1"
+
+    if [[ -n "${value}" && "${value:0:1}" == "${value: -1}" ]] \
+            && [[ "${value:0:1}" == "'" || "${value:0:1}" == '"' ]]; then
+        printf '%s' "${value:1:-1}"
+    else
+        printf '%s' "${value}"
+    fi
+}
+
 extract_saved_devops_org() {
     local rc_file="$1"
     local line value
@@ -118,12 +129,7 @@ extract_saved_devops_org() {
             || true
     )"
 
-    value="${line#export AZURE_DEVOPS_ORG=}"
-    if [[ -n "${value}" && "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
-        value="${value:1:-1}"
-    elif [[ -n "${value}" && "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
-        value="${value:1:-1}"
-    fi
+    value="$(strip_wrapping_quotes "${line#export AZURE_DEVOPS_ORG=}")"
 
     if [[ -n "${value}" ]]; then
         normalize_devops_org "${value}" || true
@@ -147,14 +153,14 @@ write_shell_block() {
         skip { next }
         $0 == legacy { skip_legacy=1; next }
         # Older installs wrote a single marker line followed by one sandbox alias line.
-        skip_legacy && $0 ~ /^alias[[:space:]]+/ && $0 ~ /start-sandbox\.sh/ { skip_legacy=0; next }
+        skip_legacy && $0 ~ /^alias[[:space:]]+[A-Za-z0-9_-]+=.*start-sandbox\.sh/ { skip_legacy=0; next }
         skip_legacy { skip_legacy=0 }
         { print }
     ' "${rc_file}" > "${tmp_file}"
 
     printf '\n%s\n' "${MANAGED_BLOCK_START}" >> "${tmp_file}"
     if [[ -n "${org_value}" ]]; then
-        printf 'export AZURE_DEVOPS_ORG=%s\n' "${org_value}" >> "${tmp_file}"
+        printf 'export AZURE_DEVOPS_ORG=%s\n' "$(shell_escape "${org_value}")" >> "${tmp_file}"
     fi
     printf 'alias %s=%s\n' "${ALIAS_NAME}" "$(shell_escape "${alias_command}")" >> "${tmp_file}"
     printf '%s\n' "${MANAGED_BLOCK_END}" >> "${tmp_file}"
@@ -227,7 +233,7 @@ if [[ ${#RC_FILES[@]} -eq 0 ]]; then
     echo ""
     echo "  ${MANAGED_BLOCK_START}"
     if [[ -n "${DEVOPS_ORG}" ]]; then
-        echo "  export AZURE_DEVOPS_ORG=${DEVOPS_ORG}"
+        echo "  export AZURE_DEVOPS_ORG=$(shell_escape "${DEVOPS_ORG}")"
     fi
     echo "  alias ${ALIAS_NAME}=$(shell_escape "${SCRIPT_DIR}/start-sandbox.sh --no-build")"
     echo "  ${MANAGED_BLOCK_END}"
