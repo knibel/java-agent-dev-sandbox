@@ -29,6 +29,7 @@
 #   --tmp                   Create a temporary directory in /tmp and mount it as /workspace
 #   -i, --image <name>      Docker image name/tag            (default: java-copilot-sandbox)
 #   --no-build              Skip image rebuild (use existing image)
+#   --auto-update           Check for and apply the latest sandbox release before launch
 #   --build-arg <ARG=VAL>   Pass extra build args to `docker build`
 #   -h, --help              Show this help
 #
@@ -61,14 +62,70 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 # shellcheck source=lib/mcp-mounts.sh
 source "${SCRIPT_DIR}/lib/mcp-mounts.sh"
+# shellcheck source=lib/update.sh
+source "${SCRIPT_DIR}/lib/update.sh"
 
 # ── defaults ─────────────────────────────────────────────────────────────────
 IMAGE_NAME="java-copilot-sandbox"
 WORKSPACE_DIR="$(pwd)"
 USE_TMP_WORKSPACE=false
 SKIP_BUILD=false
+AUTO_UPDATE=false
 EXTRA_BUILD_ARGS=()
 COPILOT_CLI_ARGS=()   # args forwarded to the container (after --)
+
+prompt_for_auto_update() {
+    local current_tag="$1"
+    local latest_tag="$2"
+    local reply
+
+    if [[ -t 0 && -t 1 ]]; then
+        printf "A newer sandbox release is available (%s → %s). Update now? [Y/n] " "${current_tag:-unknown}" "${latest_tag}"
+        read -r reply
+        [[ ! "${reply}" =~ ^[Nn]$ ]]
+    else
+        return 0
+    fi
+}
+
+maybe_auto_update() {
+    local current_tag latest_tag
+    local -a install_args=("--update")
+
+    [[ "${AUTO_UPDATE}" == true ]] || return 0
+
+    if ! command -v gh &>/dev/null; then
+        warn "gh is required for --auto-update; continuing without updating."
+        return 0
+    fi
+
+    latest_tag="$(latest_release_tag 2>/dev/null || true)"
+    if [[ -z "${latest_tag}" ]]; then
+        warn "Could not determine the latest sandbox release; continuing without updating."
+        return 0
+    fi
+
+    current_tag="$(detect_installed_release_tag "${SCRIPT_DIR}")"
+    if [[ -n "${current_tag}" && "${current_tag}" == "${latest_tag}" ]]; then
+        info "Sandbox release ${latest_tag} is already installed."
+        return 0
+    fi
+
+    if ! prompt_for_auto_update "${current_tag}" "${latest_tag}"; then
+        info "Skipping sandbox update."
+        return 0
+    fi
+
+    log "Applying sandbox update before launch …"
+    if [[ -n "${AZURE_DEVOPS_ORG:-}" ]]; then
+        install_args+=("--devops-org" "${AZURE_DEVOPS_ORG}")
+    fi
+    bash "${SCRIPT_DIR}/install.sh" "${install_args[@]}"
+
+    if [[ "${IMAGE_NAME}" == "java-copilot-sandbox" && ${#EXTRA_BUILD_ARGS[@]} -eq 0 ]]; then
+        SKIP_BUILD=true
+    fi
+}
 
 # ── argument parsing ─────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -84,6 +141,9 @@ while [[ $# -gt 0 ]]; do
             shift 2 ;;
         --no-build)
             SKIP_BUILD=true
+            shift ;;
+        --auto-update)
+            AUTO_UPDATE=true
             shift ;;
         --build-arg)
             EXTRA_BUILD_ARGS+=("--build-arg" "$2")
@@ -110,6 +170,8 @@ fi
 
 require_cmd docker
 command -v jq &>/dev/null || warn "jq not found – MCP config paths will not be auto-mounted"
+
+maybe_auto_update
 
 # ── resolve GitHub authentication mode ───────────────────────────────────────
 # Detects early whether to use PAT mode or GitHub CLI mode, because the result

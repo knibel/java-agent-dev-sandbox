@@ -100,6 +100,25 @@ extract_saved_devops_org() {
     fi
 }
 
+# extract_saved_alias_name <rc_file>
+# ───────────────────────────────────
+# Reads the alias name from within the managed block of an existing shell RC
+# file. Prints nothing when absent.
+extract_saved_alias_name() {
+    local rc_file="$1"
+    local line
+
+    line="$(
+        sed -n "\%^${MANAGED_BLOCK_START}\$%,\%^${MANAGED_BLOCK_END}\$%p" "${rc_file}" \
+            | grep '^alias ' \
+            | head -1 \
+            || true
+    )"
+
+    line="${line#alias }"
+    printf '%s' "${line%%=*}"
+}
+
 # _write_completion_block <alias_name> <fn_name> <target_file>
 # ─────────────────────────────────────────────────────────────
 # Appends Bash and Zsh tab-completion code for <alias_name> to <target_file>.
@@ -127,7 +146,7 @@ if [[ -n "\${BASH_VERSION:-}" ]]; then
                 return 0 ;;
             -i|--image|--build-arg) return 0 ;;
         esac
-        COMPREPLY=( \$(compgen -W "-w --workspace --tmp -i --image --no-build --build-arg -h --help --" -- "\${cur}") )
+        COMPREPLY=( \$(compgen -W "-w --workspace --tmp -i --image --no-build --auto-update --build-arg -h --help --" -- "\${cur}") )
     }
     complete -F ${fn_name} ${alias_name}
 elif [[ -n "\${ZSH_VERSION:-}" ]]; then
@@ -137,6 +156,7 @@ elif [[ -n "\${ZSH_VERSION:-}" ]]; then
             '--tmp[use a fresh temporary directory as workspace]' \\
             '(-i --image)'{-i,--image}'[Docker image name/tag]:image:' \\
             '--no-build[skip image rebuild]' \\
+            '--auto-update[check for and apply a newer sandbox release before launch]' \\
             '--build-arg[extra docker build argument]:ARG=VAL:' \\
             '(-h --help)'{-h,--help}'[show help and exit]' \\
             '--[pass remaining arguments to the Copilot CLI]'

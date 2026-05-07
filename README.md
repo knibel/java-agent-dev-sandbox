@@ -80,6 +80,7 @@ Subsequent runs reuse the cached image and start in seconds.
 
 Options
   --no-build          Skip the initial Docker image build
+  --update            Download and install the latest GitHub release, then rebuild
   --alias <name>      Alias name to register  (default: copilot-sandbox)
   --devops-org <org>  Persist the Azure DevOps org for future sandbox runs
   -h, --help          Show help
@@ -93,6 +94,23 @@ If neither is set, re-running `install.sh` keeps any previously saved org.
 
 > **Note:** the managed shell block stores the absolute path to the cloned
 > repository. If you move the repository, re-run `install.sh` to update it.
+
+### Updating an existing install
+
+```bash
+# Manually install the latest published release
+./install.sh --update
+```
+
+The updater:
+- Detects the currently installed release and exits early when it is already current.
+- Preserves the configured sandbox alias and saved `AZURE_DEVOPS_ORG`.
+- Downloads the latest GitHub Release archive, verifies it when a release asset SHA-256 digest is available, and otherwise falls back to the GitHub source tarball for the release tag.
+- Replaces the local sandbox files only after the archive is unpacked successfully.
+- Re-runs `install.sh` so the Docker image and shell completion stay in sync.
+- Rolls back to the previous files if the refreshed install/build fails.
+
+For safety, `./install.sh --update` refuses to run when the sandbox repository has uncommitted changes.
 
 ---
 
@@ -121,6 +139,7 @@ Options
   -w, --workspace <dir>   Directory to mount as /workspace  (default: $PWD)
   -i, --image <name>      Docker image name/tag             (default: java-copilot-sandbox)
   --no-build              Skip image rebuild; use existing image
+  --auto-update           Check for and apply the latest sandbox release before launch
   --build-arg <ARG=VAL>   Pass extra docker build arguments
   -h, --help              Show help
 ```
@@ -146,9 +165,14 @@ container.
 # Use a different Java version at build time
 ./start-sandbox.sh --build-arg JAVA_VERSION=21.0.5-tem
 
+# Check for a newer sandbox release before launching
+./start-sandbox.sh --auto-update
+
 # Skip rebuild (faster start after the first build)
 ./start-sandbox.sh --no-build
 ```
+
+When `--auto-update` is enabled, interactive launches prompt before applying an available update; non-interactive launches apply it automatically.
 
 ---
 

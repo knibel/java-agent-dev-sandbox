@@ -15,3 +15,6 @@ Thumbs.db
 # Local environment overrides
 .env
 .env.local
+
+# Local sandbox updater state
+.java-agent-dev-sandbox-state/
