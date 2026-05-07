@@ -190,7 +190,7 @@ if [[ -n "${ADO_PAT_MODE:-}" ]]; then
     _real_az="$(command -v az)"
     _az_wrapper="$(mktemp)"
     chmod 600 "${_az_wrapper}"
-cat > "${_az_wrapper}" << WRAPPER
+    cat > "${_az_wrapper}" << WRAPPER
 #!/usr/bin/env bash
 # In PAT mode, only Azure DevOps extension command groups are permitted.
 case "\${1:-}" in
