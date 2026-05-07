@@ -125,8 +125,23 @@ parts as read-only volumes before handing control to the container:
 | `~/.copilot/mcp-config.json` | parsed | — | Any absolute paths referenced by MCP servers are also mounted |
 | `~/.config/gh/` | `/root/.config/gh/` | read-only | GitHub / Copilot authentication token **(GitHub CLI mode only – not mounted in PAT mode)** |
 | `~/.local/share/gh/copilot/` | `/root/.local/share/gh/copilot/` | read-only | Pre-downloaded Copilot CLI binary (Linux hosts only; skips re-download) |
+| `/var/run/docker.sock` | `/var/run/docker.sock` | read-write | Connect sandbox tools (e.g. Testcontainers) to the host Docker daemon |
 | `~/.azure/` | — | — | Not mounted (Azure DevOps authentication is PAT-only) |
 | `<workspace>` (default: `$PWD`) | `/workspace/` | read-write | Your project files |
+
+---
+
+## Testcontainers / Docker daemon access
+
+`start-sandbox.sh` automatically bind-mounts the host Docker socket when
+`/var/run/docker.sock` exists, then sets:
+
+- `DOCKER_HOST=unix:///var/run/docker.sock`
+- `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`
+- `--add-host host.docker.internal:host-gateway` on `docker run`
+
+This lets Java tests using Testcontainers run from inside the sandbox while
+using the host Docker daemon.
 
 ---
 

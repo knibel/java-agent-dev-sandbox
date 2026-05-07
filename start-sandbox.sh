@@ -13,6 +13,8 @@
 #      ~/.local/share/gh/copilot
 #                             → /root/.local/share/gh/copilot:ro
 #                                                   (pre-downloaded CLI binary)
+#      /var/run/docker.sock    → /var/run/docker.sock:rw
+#                               (host Docker daemon for Testcontainers)
 #      ~/.azure               not mounted (Azure DevOps PAT-only auth)
 #      <workspace>            → /workspace:rw       (your project)
 # 3. Parses ~/.copilot/mcp-config.json and mounts any local paths that MCP
@@ -204,6 +206,8 @@ fi
 
 # ── collect volume mounts ─────────────────────────────────────────────────────
 declare -a MOUNTS=()
+declare -a ENV_ARGS=()
+declare -a DOCKER_RUN_EXTRA_ARGS=()
 
 # 1. ~/.copilot  ─  custom instructions AND ~/.copilot/mcp-config.json (read-only)
 #    Mounted at a staging path (/root/.copilot-host) so that entrypoint.sh can
@@ -243,8 +247,24 @@ mkdir -p "${COPILOT_BINARY_CACHE}"
 info "Copilot cache  ${COPILOT_BINARY_CACHE}  →  /root/.local/share/gh/copilot  (rw)"
 MOUNTS+=("-v" "${COPILOT_BINARY_CACHE}:/root/.local/share/gh/copilot:rw")
 
+# 5. Host Docker daemon socket (required for Testcontainers and similar tools)
+#    Mounted at the same path inside the sandbox so Docker clients in the
+#    container can talk to the host daemon.
+if [[ -S "/var/run/docker.sock" ]]; then
+    info "Docker socket  /var/run/docker.sock  →  /var/run/docker.sock  (rw)"
+    MOUNTS+=("-v" "/var/run/docker.sock:/var/run/docker.sock:rw")
+    # Ensure Docker clients use the mounted Unix socket by default.
+    ENV_ARGS+=("-e" "DOCKER_HOST=unix:///var/run/docker.sock")
+    # Testcontainers connectivity helper:
+    # resolve host.docker.internal to the host gateway from inside the sandbox
+    # and use that hostname as the container host override.
+    ENV_ARGS+=("-e" "TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal")
+    DOCKER_RUN_EXTRA_ARGS+=("--add-host" "host.docker.internal:host-gateway")
+else
+    warn "Host Docker socket not found at /var/run/docker.sock; Testcontainers may not work in the sandbox."
+fi
+
 # ── collect environment variables ─────────────────────────────────────────────
-declare -a ENV_ARGS=()
 
 # 5. Azure DevOps credentials – optional PAT mode:
 #    Read a Personal Access Token stored with:
@@ -365,6 +385,7 @@ docker run \
     --tty \
     --rm \
     --name "${CONTAINER_NAME}" \
+    "${DOCKER_RUN_EXTRA_ARGS[@]+"${DOCKER_RUN_EXTRA_ARGS[@]}"}" \
     "${MOUNTS[@]}" \
     "${ENV_ARGS[@]}" \
     "${ADO_ENV_FILE_ARGS[@]+"${ADO_ENV_FILE_ARGS[@]}"}" \
