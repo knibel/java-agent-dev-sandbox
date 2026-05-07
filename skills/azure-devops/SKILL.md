@@ -16,11 +16,22 @@ allowed-tools: shell
 `AZURE_DEVOPS_EXT_PAT` is set in the environment — the Azure DevOps CLI
 extension reads it automatically. **No `az devops login` is required.**
 
-If `AZURE_DEVOPS_ORG` was provided when the sandbox started, the default
-organization URL has already been configured via `az devops configure`.
-The sandbox also auto-injects that org as `--org https://dev.azure.com/<ORG>`
-for Azure DevOps command groups when `--org` is not explicitly provided.
-Check or set it with:
+Prefer resolving an org URL once and passing `--org` explicitly in commands.
+This avoids failures when no default org is configured:
+
+```bash
+ADO_ORG_URL="${AZURE_DEVOPS_ORG:+https://dev.azure.com/${AZURE_DEVOPS_ORG}}"
+if [[ -z "${ADO_ORG_URL}" ]]; then
+    ADO_ORG_URL="$(az devops configure --list \
+        --query 'defaults.organization' -o tsv 2>/dev/null || true)"
+fi
+if [[ -z "${ADO_ORG_URL}" ]]; then
+    echo "Set AZURE_DEVOPS_ORG or run: az devops configure --defaults organization=https://dev.azure.com/<ORG>" >&2
+    exit 1
+fi
+```
+
+You can still check or set defaults with:
 
 ```bash
 az devops configure --list
@@ -35,7 +46,7 @@ the user explicitly requests a different branch.
 ## List repositories
 
 ```bash
-az repos list --project <PROJECT> --output table
+az repos list --project <PROJECT> --org "${ADO_ORG_URL}" --output table
 ```
 
 ---
@@ -43,7 +54,7 @@ az repos list --project <PROJECT> --output table
 ## Get repository details
 
 ```bash
-az repos show --repo <REPO> --project <PROJECT>
+az repos show --repo <REPO> --project <PROJECT> --org "${ADO_ORG_URL}"
 ```
 
 ---
@@ -54,6 +65,7 @@ az repos show --repo <REPO> --project <PROJECT>
 
 ```bash
 CLONE_URL=$(az repos show --repo <REPO> --project <PROJECT> \
+    --org "${ADO_ORG_URL}" \
     --query remoteUrl -o tsv)
 # Use GIT_ASKPASS to supply the PAT without exposing it in the process list
 GIT_ASKPASS_SCRIPT=$(mktemp -t ado-askpass-XXXXXX) && chmod 700 "${GIT_ASKPASS_SCRIPT}"
@@ -65,15 +77,23 @@ rm -f "${GIT_ASKPASS_SCRIPT}"
 **Option 2 – Fetch a single file without a full clone** (faster for one file):
 
 ```bash
-REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --query id -o tsv)
+REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --org "${ADO_ORG_URL}" --query id -o tsv)
+OUTFILE=$(mktemp -t ado-item-XXXXXX)
+rm -f "${OUTFILE}"  # az devops invoke --out-file requires a non-existent path
 az devops invoke \
     --area git \
     --resource items \
     --route-parameters project=<PROJECT> repositoryId="${REPO_ID}" \
     --query-parameters "path=/<PATH/TO/FILE>&versionType=branch&version=main" \
     --accept-media-type text/plain \
-    --output json
+    --org "${ADO_ORG_URL}" \
+    --out-file "${OUTFILE}"
+cat "${OUTFILE}"
+rm -f "${OUTFILE}"
 ```
+
+`--accept-media-type text/plain` returns raw file content, not JSON.
+Use `--out-file` and read the file afterwards (for example with `cat`/`grep`).
 
 ---
 
@@ -83,6 +103,7 @@ az devops invoke \
 # Resolve the commit SHA of the source branch first (default: main)
 SOURCE_SHA=$(az repos ref list \
     --repo <REPO> --project <PROJECT> \
+    --org "${ADO_ORG_URL}" \
     --filter refs/heads/main \
     --query "[0].objectId" -o tsv)
 
@@ -90,7 +111,8 @@ az repos ref create \
     --name refs/heads/<NEW_BRANCH> \
     --object-id "${SOURCE_SHA}" \
     --repo <REPO> \
-    --project <PROJECT>
+    --project <PROJECT> \
+    --org "${ADO_ORG_URL}"
 ```
 
 ---
@@ -101,6 +123,7 @@ az repos ref create \
 az repos pr create \
     --repository <REPO> \
     --project <PROJECT> \
+    --org "${ADO_ORG_URL}" \
     --source-branch <SOURCE_BRANCH> \
     --target-branch main \
     --title "<TITLE>" \
@@ -115,6 +138,7 @@ az repos pr create \
 az repos pr list \
     --project <PROJECT> \
     --repository <REPO> \
+    --org "${ADO_ORG_URL}" \
     --status active
 ```
 
@@ -123,7 +147,7 @@ az repos pr list \
 ## Get pull request details
 
 ```bash
-az repos pr show --id <PR_ID>
+az repos pr show --id <PR_ID> --org "${ADO_ORG_URL}"
 ```
 
 ---
@@ -131,13 +155,14 @@ az repos pr show --id <PR_ID>
 ## Read PR comment threads
 
 ```bash
-REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --query id -o tsv)
+REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --org "${ADO_ORG_URL}" --query id -o tsv)
 
 az devops invoke \
     --area git \
     --resource pullRequestThreads \
     --route-parameters project=<PROJECT> repositoryId="${REPO_ID}" pullRequestId=<PR_ID> \
     --http-method GET \
+    --org "${ADO_ORG_URL}" \
     --output json
 ```
 
@@ -148,7 +173,7 @@ az devops invoke \
 Create a uniquely-named temp file with the thread payload, post it, then clean up:
 
 ```bash
-REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --query id -o tsv)
+REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --org "${ADO_ORG_URL}" --query id -o tsv)
 
 ADO_THREAD_FILE=$(mktemp -t ado-thread-XXXXXX)
 cat > "${ADO_THREAD_FILE}" << 'PAYLOAD'
@@ -174,6 +199,7 @@ az devops invoke \
     --resource pullRequestThreads \
     --route-parameters project=<PROJECT> repositoryId="${REPO_ID}" pullRequestId=<PR_ID> \
     --http-method POST \
+    --org "${ADO_ORG_URL}" \
     --in-file "${ADO_THREAD_FILE}" \
     --api-version 7.1-preview.1 \
     --output json
@@ -186,7 +212,7 @@ rm -f "${ADO_THREAD_FILE}"
 ## Reply to an existing PR comment thread
 
 ```bash
-REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --query id -o tsv)
+REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --org "${ADO_ORG_URL}" --query id -o tsv)
 
 ADO_REPLY_FILE=$(mktemp -t ado-reply-XXXXXX)
 cat > "${ADO_REPLY_FILE}" << 'PAYLOAD'
@@ -206,6 +232,7 @@ az devops invoke \
     --resource pullRequestThreadComments \
     --route-parameters project=<PROJECT> repositoryId="${REPO_ID}" pullRequestId=<PR_ID> threadId=<THREAD_ID> \
     --http-method POST \
+    --org "${ADO_ORG_URL}" \
     --in-file "${ADO_REPLY_FILE}" \
     --output json
 
@@ -219,6 +246,7 @@ rm -f "${ADO_REPLY_FILE}"
 ```bash
 az repos pr update \
     --id <PR_ID> \
+    --org "${ADO_ORG_URL}" \
     --title "<NEW_TITLE>" \
     --description "<NEW_DESCRIPTION>"
 ```
