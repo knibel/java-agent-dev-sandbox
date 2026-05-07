@@ -378,7 +378,7 @@ secret-tool store --label "Azure DevOps PAT" \
 
 At container start:
 - The token is forwarded into the container as `AZURE_DEVOPS_EXT_PAT`
-  (recognised by `az devops` and most ADO MCP servers).
+  (recognised by `az devops` and used to derive auth for the native ADO MCP skill).
 - `~/.azure` is **not** mounted – the container has no access to your broader
   Azure CLI credentials.
 - The `az` binary inside the container is replaced by a wrapper that allows
@@ -386,6 +386,20 @@ At container start:
   `az boards`, `az pipelines`, `az artifacts`) and refuses all other
   invocations with a clear error message, preventing accidental use of Azure
   CLI with broader-than-intended permissions.
+- When `AZURE_DEVOPS_ORG` is set on the host, the entrypoint auto-registers
+  the official Azure DevOps MCP server (`@azure-devops/mcp`) as a native skill
+  in `~/.copilot/mcp-config.json` and wires PAT auth automatically.
+
+Set your Azure DevOps organization before launching:
+
+```bash
+export AZURE_DEVOPS_ORG="contoso"
+./start-sandbox.sh
+```
+
+This native skill supports repository and PR workflows such as reading repos
+and files, creating branches, creating pull requests, and reading/updating PR
+threads/comments (including inline suggestions via PR thread APIs).
 
 To remove the PAT:
 

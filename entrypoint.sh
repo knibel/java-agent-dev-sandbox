@@ -63,6 +63,49 @@ if command -v jq &>/dev/null \
     fi
 fi
 
+# ── Azure DevOps native skill (official MCP server) ───────────────────────────
+# Automatically register the official Azure DevOps MCP server so Copilot can
+# natively handle repository and pull-request workflows (read repos/files,
+# create branches/PRs, review comments, post inline suggestions, etc.).
+#
+# Requirements:
+#   • jq / npx are available
+#   • ADO_PAT_MODE=1 and AZURE_DEVOPS_EXT_PAT are present (provided by launcher)
+#   • AZURE_DEVOPS_ORG is set (organization short name, e.g. "contoso")
+#   • the "azure-devops" key is NOT already present in mcp-config.json
+if command -v jq &>/dev/null && command -v npx &>/dev/null && [[ -n "${ADO_PAT_MODE:-}" ]]; then
+    # The official server expects PERSONAL_ACCESS_TOKEN to be base64(email:pat).
+    # The launcher provides raw PAT via AZURE_DEVOPS_EXT_PAT.
+    if [[ -z "${PERSONAL_ACCESS_TOKEN:-}" && -n "${AZURE_DEVOPS_EXT_PAT:-}" ]]; then
+        export PERSONAL_ACCESS_TOKEN
+        PERSONAL_ACCESS_TOKEN="$(printf 'mcp:%s' "${AZURE_DEVOPS_EXT_PAT}" | base64 -w 0)"
+    fi
+
+    if [[ -n "${AZURE_DEVOPS_ORG:-}" ]]; then
+        MCP_CONFIG="/root/.copilot/mcp-config.json"
+        mkdir -p /root/.copilot
+        if [[ ! -f "${MCP_CONFIG}" ]]; then
+            echo '{"mcpServers":{}}' > "${MCP_CONFIG}"
+        fi
+        if ! jq -e '.mcpServers["azure-devops"] // empty' "${MCP_CONFIG}" &>/dev/null; then
+            tmp_cfg="$(mktemp)"
+            if jq --arg org "${AZURE_DEVOPS_ORG}" '.mcpServers["azure-devops"] = {
+                "command": "npx",
+                "args": ["-y", "@azure-devops/mcp", $org, "--authentication", "pat", "-d", "core", "-d", "repositories", "-d", "search"],
+                "tools": ["*"]
+            }' "${MCP_CONFIG}" > "${tmp_cfg}" \
+                    && mv "${tmp_cfg}" "${MCP_CONFIG}"; then
+                echo "✓  Azure DevOps native skill registered (@azure-devops/mcp)"
+            else
+                rm -f "${tmp_cfg}"
+            fi
+        fi
+    else
+        echo "ℹ  Azure DevOps PAT detected, but AZURE_DEVOPS_ORG is not set."
+        echo "   Set AZURE_DEVOPS_ORG=<organization> on the host to enable the native Azure DevOps MCP skill."
+    fi
+fi
+
 # ── Java LSP native skill (fallback when MCP is disabled) ────────────────────
 # Copilot CLI has built-in LSP support via ~/.copilot/lsp-config.json.
 # When MCP is disabled (or not available), Copilot falls back to this native

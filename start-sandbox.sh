@@ -251,7 +251,7 @@ declare -a ENV_ARGS=()
 #      secret-tool store --label "Azure DevOps PAT" \
 #                        service azure-devops-pat account default
 #    The token is forwarded as AZURE_DEVOPS_EXT_PAT (used by `az devops`
-#    and many ADO MCP servers). ADO_PAT_MODE=1 is set so entrypoint.sh knows
+#    and by the native Azure DevOps MCP skill in entrypoint.sh). ADO_PAT_MODE=1 is set so entrypoint.sh knows
 #    to restrict `az` to Azure DevOps extension command groups only.
 #    The host ~/.azure directory is never mounted.
 ADO_PAT_VALUE=""
@@ -296,6 +296,14 @@ trap cleanup_env_files EXIT INT TERM
 declare -a ADO_ENV_FILE_ARGS=()
 if [[ -n "${ADO_ENV_FILE}" ]]; then
     ADO_ENV_FILE_ARGS+=("--env-file" "${ADO_ENV_FILE}")
+fi
+
+# 5a. Optional Azure DevOps MCP context:
+#     AZURE_DEVOPS_ORG controls native Azure DevOps MCP skill auto-registration
+#     in entrypoint.sh (official @azure-devops/mcp server).
+if [[ -n "${AZURE_DEVOPS_ORG:-}" ]]; then
+    info "Forwarding Azure DevOps organization for native MCP skill: ${AZURE_DEVOPS_ORG}"
+    ENV_ARGS+=("-e" "AZURE_DEVOPS_ORG=${AZURE_DEVOPS_ORG}")
 fi
 
 declare -a GH_ENV_FILE_ARGS=()
