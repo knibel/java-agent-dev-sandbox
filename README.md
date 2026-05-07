@@ -140,7 +140,7 @@ parts as read-only volumes before handing control to the container:
 - `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`
 - `--add-host host.docker.internal:host-gateway` on `docker run`
 
-This lets Java tests using Testcontainers run from inside the sandbox while
+This lets tests using Testcontainers run from inside the sandbox while
 using the host Docker daemon.
 
 ---
