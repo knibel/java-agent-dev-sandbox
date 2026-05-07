@@ -378,7 +378,7 @@ secret-tool store --label "Azure DevOps PAT" \
 
 At container start:
 - The token is forwarded into the container as `AZURE_DEVOPS_EXT_PAT`
-  (recognised by `az devops` and used to derive auth for the native ADO MCP skill).
+  (read automatically by the `az devops` extension — no login needed).
 - `~/.azure` is **not** mounted – the container has no access to your broader
   Azure CLI credentials.
 - The `az` binary inside the container is replaced by a wrapper that allows
@@ -386,20 +386,30 @@ At container start:
   `az boards`, `az pipelines`, `az artifacts`) and refuses all other
   invocations with a clear error message, preventing accidental use of Azure
   CLI with broader-than-intended permissions.
-- When `AZURE_DEVOPS_ORG` is set on the host, the entrypoint auto-registers
-  the official Azure DevOps MCP server (`@azure-devops/mcp`) as a native skill
-  in `~/.copilot/mcp-config.json` and wires PAT auth automatically.
+- The built-in **Azure DevOps native skill** (`skills/azure-devops/SKILL.md`)
+  is installed into `~/.copilot/skills/azure-devops/` automatically.  Copilot
+  loads this skill when you ask about repositories, branches, or pull requests.
 
-Set your Azure DevOps organization before launching:
+Optionally set your Azure DevOps organization before launching so that `az`
+commands don't need `--org` on every call:
 
 ```bash
 export AZURE_DEVOPS_ORG="contoso"
 ./start-sandbox.sh
 ```
 
-This native skill supports repository and PR workflows such as reading repos
-and files, creating branches, creating pull requests, and reading/updating PR
-threads/comments (including inline suggestions via PR thread APIs).
+### What the Azure DevOps skill can do
+
+| Operation | How Copilot does it |
+|---|---|
+| List repositories | `az repos list` |
+| Read a file | `git clone` with PAT, or `az devops invoke` (items API) |
+| Create a branch | `az repos ref create` |
+| Create a pull request | `az repos pr create` |
+| List / read PR comments | `az devops invoke` (pullRequestThreads API) |
+| Post inline PR suggestion | `az devops invoke` (pullRequestThreads POST) |
+| Reply to a PR thread | `az devops invoke` (pullRequestThreadComments POST) |
+| Update a pull request | `az repos pr update` |
 
 To remove the PAT:
 

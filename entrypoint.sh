@@ -63,50 +63,33 @@ if command -v jq &>/dev/null \
     fi
 fi
 
-# ── Azure DevOps native skill (official MCP server) ───────────────────────────
-# Automatically register the official Azure DevOps MCP server so Copilot can
-# natively handle repository and pull-request workflows (read repos/files,
-# create branches/PRs, review comments, post inline suggestions, etc.).
+# ── Azure DevOps native skill ─────────────────────────────────────────────────
+# Install the built-in Azure DevOps skill so Copilot can use the az CLI
+# (az repos, az devops) directly for repository and PR workflows without an
+# MCP server.  AZURE_DEVOPS_EXT_PAT is already in the environment; the Azure
+# DevOps CLI extension reads it automatically – no az devops login needed.
 #
-# Requirements:
-#   • jq / npx are available
-#   • ADO_PAT_MODE=1 and AZURE_DEVOPS_EXT_PAT are present (provided by launcher)
-#   • AZURE_DEVOPS_ORG is set (organization short name, e.g. "contoso")
-#   • the "azure-devops" key is NOT already present in mcp-config.json
-if command -v jq &>/dev/null && command -v npx &>/dev/null && [[ -n "${ADO_PAT_MODE:-}" ]]; then
-    # The official server expects PERSONAL_ACCESS_TOKEN to be base64(email:pat).
-    # The launcher provides raw PAT via AZURE_DEVOPS_EXT_PAT.
-    if [[ -z "${PERSONAL_ACCESS_TOKEN:-}" && -n "${AZURE_DEVOPS_EXT_PAT:-}" ]]; then
-        export PERSONAL_ACCESS_TOKEN
-        # "mcp" is a non-empty placeholder username; ADO PAT auth uses only the PAT.
-        PERSONAL_ACCESS_TOKEN="$(printf 'mcp:%s' "${AZURE_DEVOPS_EXT_PAT}" | base64 | tr -d '\n')"
+# When AZURE_DEVOPS_ORG is provided the default organisation URL is also
+# pre-configured via az devops configure so commands don't need --org.
+#
+# The skill directory is only installed when not already present, letting
+# users override it with their own ~/.copilot/skills/azure-devops/ directory.
+if [[ -n "${ADO_PAT_MODE:-}" ]]; then
+    # Configure az devops organization default when the org is known.
+    if [[ -n "${AZURE_DEVOPS_ORG:-}" ]] && command -v az &>/dev/null; then
+        az devops configure --defaults \
+            "organization=https://dev.azure.com/${AZURE_DEVOPS_ORG}" \
+            2>/dev/null || true
+        echo "✓  Azure DevOps default org set (https://dev.azure.com/${AZURE_DEVOPS_ORG})"
     fi
 
-    if [[ -n "${AZURE_DEVOPS_ORG:-}" ]]; then
-        MCP_CONFIG="/root/.copilot/mcp-config.json"
-        mkdir -p /root/.copilot
-        if [[ ! -f "${MCP_CONFIG}" ]]; then
-            echo '{"mcpServers":{}}' > "${MCP_CONFIG}"
-        fi
-        if ! jq -e '.mcpServers["azure-devops"] // empty' "${MCP_CONFIG}" &>/dev/null; then
-            tmp_cfg="$(mktemp)"
-            # Domain flags (-d) limit which ADO tool groups are exposed; tools=["*"]
-            # then enables all tools within those selected domains only.
-            # We enable core + repositories + search because they cover repo/PR
-            # workflows and code/file lookup while avoiding unrelated domains.
-            if jq --arg org "${AZURE_DEVOPS_ORG}" '.mcpServers["azure-devops"] = {
-                "command": "npx",
-                "args": ["-y", "@azure-devops/mcp", $org, "--authentication", "pat", "-d", "core", "-d", "repositories", "-d", "search"],
-                "tools": ["*"]
-            }' "${MCP_CONFIG}" > "${tmp_cfg}" \
-                    && mv "${tmp_cfg}" "${MCP_CONFIG}"; then
-                echo "✓  Azure DevOps native skill registered (@azure-devops/mcp)"
-            else
-                rm -f "${tmp_cfg}"
-            fi
-        fi
-    else
-        echo "ℹ  Azure DevOps PAT detected without AZURE_DEVOPS_ORG. Set AZURE_DEVOPS_ORG=<organization> to enable the native Azure DevOps MCP skill."
+    # Copy skill from image location into the user skills directory.
+    SKILL_SRC="/usr/local/share/copilot-skills/azure-devops"
+    SKILL_DST="/root/.copilot/skills/azure-devops"
+    if [[ -d "${SKILL_SRC}" && ! -d "${SKILL_DST}" ]]; then
+        mkdir -p /root/.copilot/skills
+        cp -r "${SKILL_SRC}" "${SKILL_DST}"
+        echo "✓  Azure DevOps native skill installed"
     fi
 fi
 
