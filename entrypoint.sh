@@ -69,7 +69,7 @@ fi
 # MCP server.  AZURE_DEVOPS_EXT_PAT is already in the environment; the Azure
 # DevOps CLI extension reads it automatically – no az devops login needed.
 #
-# When AZURE_DEVOPS_ORG is provided the default organisation URL is also
+# When AZURE_DEVOPS_ORG is provided the default organization URL is also
 # pre-configured via az devops configure so commands don't need --org.
 #
 # The skill directory is only installed when not already present, letting

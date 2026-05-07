@@ -50,8 +50,11 @@ az repos show --repo <REPO> --project <PROJECT>
 ```bash
 CLONE_URL=$(az repos show --repo <REPO> --project <PROJECT> \
     --query remoteUrl -o tsv)
-# Embed the PAT in the clone URL so no interactive prompt appears
-git clone "https://pat:${AZURE_DEVOPS_EXT_PAT}@${CLONE_URL#https://}" /tmp/<REPO>
+# Use GIT_ASKPASS to supply the PAT without exposing it in the process list
+GIT_ASKPASS_SCRIPT=$(mktemp) && chmod 700 "${GIT_ASKPASS_SCRIPT}"
+printf '#!/bin/sh\necho "${AZURE_DEVOPS_EXT_PAT}"\n' > "${GIT_ASKPASS_SCRIPT}"
+GIT_ASKPASS="${GIT_ASKPASS_SCRIPT}" git clone "${CLONE_URL}" /tmp/<REPO>
+rm -f "${GIT_ASKPASS_SCRIPT}"
 ```
 
 **Option 2 – Fetch a single file without a full clone** (faster for one file):
@@ -137,12 +140,13 @@ az devops invoke \
 
 ## Post an inline suggestion (code comment) on a PR
 
-Create a temp file with the thread payload, post it, then clean up:
+Create a uniquely-named temp file with the thread payload, post it, then clean up:
 
 ```bash
 REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --query id -o tsv)
 
-cat > /tmp/ado-thread.json << 'PAYLOAD'
+ADO_THREAD_FILE=$(mktemp /tmp/ado-thread-XXXXXX.json)
+cat > "${ADO_THREAD_FILE}" << 'PAYLOAD'
 {
   "comments": [
     {
@@ -165,11 +169,11 @@ az devops invoke \
     --resource pullRequestThreads \
     --route-parameters project=<PROJECT> repositoryId="${REPO_ID}" pullRequestId=<PR_ID> \
     --http-method POST \
-    --in-file /tmp/ado-thread.json \
+    --in-file "${ADO_THREAD_FILE}" \
     --api-version 7.1-preview.1 \
     --output json
 
-rm -f /tmp/ado-thread.json
+rm -f "${ADO_THREAD_FILE}"
 ```
 
 ---
@@ -179,7 +183,8 @@ rm -f /tmp/ado-thread.json
 ```bash
 REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --query id -o tsv)
 
-cat > /tmp/ado-reply.json << 'PAYLOAD'
+ADO_REPLY_FILE=$(mktemp /tmp/ado-reply-XXXXXX.json)
+cat > "${ADO_REPLY_FILE}" << 'PAYLOAD'
 {
   "comments": [
     {
@@ -196,10 +201,10 @@ az devops invoke \
     --resource pullRequestThreadComments \
     --route-parameters project=<PROJECT> repositoryId="${REPO_ID}" pullRequestId=<PR_ID> threadId=<THREAD_ID> \
     --http-method POST \
-    --in-file /tmp/ado-reply.json \
+    --in-file "${ADO_REPLY_FILE}" \
     --output json
 
-rm -f /tmp/ado-reply.json
+rm -f "${ADO_REPLY_FILE}"
 ```
 
 ---
