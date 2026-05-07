@@ -65,7 +65,7 @@ setup() {
 }
 
 @test "verify_tarball_tree_matches_tag: succeeds when extracted directory includes commit prefix" {
-    run verify_tarball_tree_matches_tag "/tmp/knibel-java-agent-dev-sandbox-f5c3abc" "f5c3abc2dcf75396b775ebaf4256760b7e1dcdd6"
+    run verify_tarball_tree_matches_tag "/tmp/org-java-agent-dev-sandbox-f5c3abc" "f5c3abc2dcf75396b775ebaf4256760b7e1dcdd6"
     [ "$status" -eq 0 ]
 }
 

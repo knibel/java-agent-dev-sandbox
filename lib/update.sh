@@ -11,7 +11,9 @@ _UPDATE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${_UPDATE_LIB_DIR}/common.sh"
 
-readonly SANDBOX_RELEASE_REPO="knibel/java-agent-dev-sandbox"
+# Self-updates target this repository's GitHub Releases by default, but the
+# repository slug can be overridden for testing or forks.
+readonly SANDBOX_RELEASE_REPO="${SANDBOX_RELEASE_REPO:-knibel/java-agent-dev-sandbox}"
 readonly UPDATE_STATE_DIR_NAME=".java-agent-dev-sandbox-state"
 readonly INSTALLED_RELEASE_FILE_NAME="installed-release"
 
