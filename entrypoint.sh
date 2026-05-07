@@ -220,10 +220,8 @@ WRAPPER
     chmod +x "${_az_wrapper}"
     mv "${_az_wrapper}" /usr/local/bin/az
 else
-    echo "⚠  Azure DevOps PAT mode is required, but ADO_PAT_MODE is not set."
-    echo "   Start the sandbox with a stored PAT:"
-    echo "     secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
-    exit 1
+    echo "ℹ  Azure DevOps integration disabled (ADO_PAT_MODE is not set)."
+    echo "   Sandbox will run without Azure DevOps connectivity."
 fi
 
 # ── ensure Copilot CLI agent binary is installed ─────────────────────────────

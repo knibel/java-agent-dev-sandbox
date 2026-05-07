@@ -246,7 +246,7 @@ MOUNTS+=("-v" "${COPILOT_BINARY_CACHE}:/root/.local/share/gh/copilot:rw")
 # ── collect environment variables ─────────────────────────────────────────────
 declare -a ENV_ARGS=()
 
-# 5. Azure DevOps credentials – PAT mode only:
+# 5. Azure DevOps credentials – optional PAT mode:
 #    Read a Personal Access Token stored with:
 #      secret-tool store --label "Azure DevOps PAT" \
 #                        service azure-devops-pat account default
@@ -254,6 +254,8 @@ declare -a ENV_ARGS=()
 #    and the native Azure DevOps skill in entrypoint.sh). ADO_PAT_MODE=1 is set so entrypoint.sh knows
 #    to restrict `az` to Azure DevOps extension command groups only.
 #    The host ~/.azure directory is never mounted.
+#    If no PAT is found, the sandbox still starts; Azure DevOps features are
+#    simply unavailable.
 ADO_PAT_VALUE=""
 if command -v secret-tool &>/dev/null; then
     ADO_PAT_VALUE="$(secret-tool lookup service azure-devops-pat account default 2>/dev/null || true)"
@@ -270,15 +272,10 @@ if [[ -n "${ADO_PAT_VALUE}" ]]; then
     printf 'AZURE_DEVOPS_EXT_PAT=%s\n' "${ADO_PAT_VALUE}" > "${ADO_ENV_FILE}"
 else
     if ! command -v secret-tool &>/dev/null; then
-        err "secret-tool is required for Azure DevOps PAT mode."
-        err "Install libsecret-tools and store a PAT:"
-        err "  secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
+        warn "secret-tool not found; starting without Azure DevOps integration."
     else
-        err "No Azure DevOps PAT found in keychain."
-        err "Store a PAT and retry:"
-        err "  secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
+        warn "No Azure DevOps PAT found; starting without Azure DevOps integration."
     fi
-    exit 1
 fi
 
 # Register a cleanup trap to remove the PAT env-files (if created) once the
