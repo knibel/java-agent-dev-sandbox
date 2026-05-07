@@ -40,6 +40,7 @@ source ~/.bashrc   # or ~/.zshrc
 The install script:
 - Builds the Docker image (takes a few minutes the first time to install SDKMAN, Java, Maven, Gradle, Spring Boot CLI and the Azure CLI).
 - Adds a `copilot-sandbox` alias to `~/.bashrc` / `~/.zshrc`.
+- Registers **tab completion** for the alias in both Bash and Zsh.
 
 After that, launch from **any** directory with a single command:
 
@@ -49,6 +50,18 @@ copilot-sandbox
 ```
 
 `$PWD` is automatically mounted as `/workspace` and Copilot starts there.
+
+Tab completion is available immediately after reloading your shell config:
+
+```bash
+copilot-sandbox --<Tab>      # lists all launcher flags
+copilot-sandbox -w <Tab>     # completes directory paths
+```
+
+> **Zsh note:** completion requires the zsh completion system to be initialised
+> (`compinit`).  This is the default in most setups (oh-my-zsh, prezto, etc.).
+> If tab completion is not working, add `autoload -Uz compinit && compinit`
+> to your `~/.zshrc` before the managed block.
 
 ### Manual start (without the alias)
 
@@ -73,7 +86,7 @@ Options
 ```
 
 The install script manages a small block in `~/.bashrc` / `~/.zshrc` containing
-the sandbox alias and, when provided, `AZURE_DEVOPS_ORG`.
+the sandbox alias, tab-completion for the alias, and, when provided, `AZURE_DEVOPS_ORG`.
 
 `--devops-org` overrides the current `AZURE_DEVOPS_ORG` for that install run.
 If neither is set, re-running `install.sh` keeps any previously saved org.

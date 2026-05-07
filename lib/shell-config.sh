@@ -9,6 +9,13 @@
 #   # >>> java-agent-dev-sandbox >>>
 #   export AZURE_DEVOPS_ORG=contoso   # optional
 #   alias copilot-sandbox='/path/to/start-sandbox.sh --no-build'
+#   if [[ -n "${BASH_VERSION:-}" ]]; then
+#       _copilot_sandbox_complete() { ... }
+#       complete -F _copilot_sandbox_complete copilot-sandbox
+#   elif [[ -n "${ZSH_VERSION:-}" ]]; then
+#       _copilot_sandbox_complete() { ... }
+#       compdef _copilot_sandbox_complete copilot-sandbox
+#   fi
 #   # <<< java-agent-dev-sandbox <<<
 
 # Guard against being sourced more than once.
@@ -93,19 +100,67 @@ extract_saved_devops_org() {
     fi
 }
 
+# _write_completion_block <alias_name> <fn_name> <target_file>
+# ─────────────────────────────────────────────────────────────
+# Appends Bash and Zsh tab-completion code for <alias_name> to <target_file>.
+# <fn_name> is the shell identifier used for the completion function
+# (derived from the alias name with hyphens replaced by underscores).
+# The completion covers all start-sandbox.sh launcher flags.
+_write_completion_block() {
+    local alias_name="$1"
+    local fn_name="$2"
+    local target="$3"
+
+    cat >> "${target}" <<COMPLETION_EOF
+if [[ -n "\${BASH_VERSION:-}" ]]; then
+    ${fn_name}() {
+        local cur prev i
+        COMPREPLY=()
+        cur="\${COMP_WORDS[COMP_CWORD]}"
+        prev="\${COMP_WORDS[COMP_CWORD-1]}"
+        for ((i = 1; i < COMP_CWORD; i++)); do
+            [[ "\${COMP_WORDS[i]}" == "--" ]] && return 0
+        done
+        case "\${prev}" in
+            -w|--workspace)
+                COMPREPLY=( \$(compgen -d -- "\${cur}") )
+                return 0 ;;
+            -i|--image|--build-arg) return 0 ;;
+        esac
+        COMPREPLY=( \$(compgen -W "-w --workspace --tmp -i --image --no-build --build-arg -h --help --" -- "\${cur}") )
+    }
+    complete -F ${fn_name} ${alias_name}
+elif [[ -n "\${ZSH_VERSION:-}" ]]; then
+    ${fn_name}() {
+        _arguments -s \\
+            '(-w --workspace)'{-w,--workspace}'[workspace directory to mount]:dir:_directories' \\
+            '--tmp[use a fresh temporary directory as workspace]' \\
+            '(-i --image)'{-i,--image}'[Docker image name/tag]:image:' \\
+            '--no-build[skip image rebuild]' \\
+            '--build-arg[extra docker build argument]:ARG=VAL:' \\
+            '(-h --help)'{-h,--help}'[show help and exit]' \\
+            '--[pass remaining arguments to the Copilot CLI]'
+    }
+    compdef ${fn_name} ${alias_name}
+fi
+COMPLETION_EOF
+}
+
 # write_shell_block <rc_file> <org_value> <alias_name> <alias_command>
 # ─────────────────────────────────────────────────────────────────────
 # Atomically rewrites <rc_file>:
 #   • Removes any existing managed block (new or legacy format).
-#   • Appends a fresh managed block with an optional AZURE_DEVOPS_ORG export
-#     and the sandbox alias.
+#   • Appends a fresh managed block with an optional AZURE_DEVOPS_ORG export,
+#     the sandbox alias, and Bash/Zsh tab-completion for the alias.
 write_shell_block() {
     local rc_file="$1"
     local org_value="$2"
     local alias_name="$3"
     local alias_command="$4"
-    local tmp_file
+    local fn_name tmp_file
 
+    # Derive a valid shell identifier: replace hyphens with underscores.
+    fn_name="_${alias_name//-/_}_complete"
     tmp_file="$(mktemp)"
 
     awk \
@@ -127,6 +182,7 @@ write_shell_block() {
         printf 'export AZURE_DEVOPS_ORG=%s\n' "$(shell_escape "${org_value}")" >> "${tmp_file}"
     fi
     printf 'alias %s=%s\n' "${alias_name}" "$(shell_escape "${alias_command}")" >> "${tmp_file}"
+    _write_completion_block "${alias_name}" "${fn_name}" "${tmp_file}"
     printf '%s\n' "${MANAGED_BLOCK_END}" >> "${tmp_file}"
 
     mv "${tmp_file}" "${rc_file}"
