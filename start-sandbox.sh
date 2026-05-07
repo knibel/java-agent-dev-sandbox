@@ -256,8 +256,8 @@ declare -a ENV_ARGS=()
 #        • The token is forwarded as AZURE_DEVOPS_EXT_PAT (used by `az devops`
 #          and many ADO MCP servers).
 #        • ADO_PAT_MODE=1 is set so entrypoint.sh knows to restrict `az`:
-          only `az devops` subcommands are allowed (they authenticate via
-          AZURE_DEVOPS_EXT_PAT); all other `az` commands are blocked.
+#          only `az devops` subcommands are allowed (they authenticate via
+#          AZURE_DEVOPS_EXT_PAT); all other `az` commands are blocked.
 #        • The host ~/.azure directory is NOT mounted, keeping the container
 #          isolated from broader Azure CLI credentials.
 #
