@@ -387,9 +387,11 @@ When a PAT is found at container start:
   (recognised by `az devops` and most ADO MCP servers).
 - `~/.azure` is **not** mounted – the container has no access to your broader
   Azure CLI credentials.
-- The `az` binary inside the container is replaced by a wrapper that refuses
-  all invocations with a clear error message, preventing accidental use of
-  Azure CLI with broader-than-intended permissions.
+- The `az` binary inside the container is replaced by a wrapper that allows
+  only Azure DevOps extension command groups (`az devops`, `az repos`,
+  `az boards`, `az pipelines`, `az artifacts`) and refuses all other
+  invocations with a clear error message, preventing accidental use of Azure
+  CLI with broader-than-intended permissions.
 
 To remove the PAT and revert to Azure CLI mode:
 
