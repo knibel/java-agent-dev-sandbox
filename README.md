@@ -376,7 +376,7 @@ When no PAT is found in the keychain (or `secret-tool` is not installed),
 
 ---
 
-## Azure DevOps authentication (PAT-only)
+## Azure DevOps authentication (optional PAT mode)
 
 Store a scoped Azure DevOps Personal Access Token in your Linux keychain once:
 
@@ -442,8 +442,8 @@ secret-tool clear service azure-devops-pat account default
 > **Prerequisite:** `secret-tool` must be installed on the host
 > (`sudo apt install libsecret-tools` on Debian/Ubuntu).
 
-If no PAT is found in the keychain (or `secret-tool` is not installed),
-`start-sandbox.sh` exits with a clear setup message.
+If no PAT is found in the keychain (or `secret-tool` is not installed), the
+sandbox still starts and Azure DevOps integration is disabled for that session.
 
 ---
 
