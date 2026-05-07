@@ -29,6 +29,8 @@
 #
 # Note: the managed shell block stores the absolute path to this repository.
 #       If you move the repository, re-run install.sh to update the alias.
+#       Precedence: --devops-org overrides AZURE_DEVOPS_ORG for this run;
+#       otherwise the current AZURE_DEVOPS_ORG is used, or any saved org is kept.
 #
 # After installation, reload your shell config or open a new terminal, then
 # run from any project directory:
@@ -140,8 +142,8 @@ write_shell_block() {
         $0 == end { skip=0; next }
         skip { next }
         $0 == legacy { skip_legacy=1; next }
-        # Older installs wrote a single marker line followed by one alias line.
-        skip_legacy && $0 ~ /^alias[[:space:]]+/ { skip_legacy=0; next }
+        # Older installs wrote a single marker line followed by one sandbox alias line.
+        skip_legacy && $0 ~ /^alias[[:space:]]+/ && $0 ~ /start-sandbox\.sh/ && $0 ~ /--no-build/ { skip_legacy=0; next }
         skip_legacy { skip_legacy=0 }
         { print }
     ' "${rc_file}" > "${tmp_file}"

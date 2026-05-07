@@ -75,6 +75,9 @@ Options
 The install script manages a small block in `~/.bashrc` / `~/.zshrc` containing
 the sandbox alias and, when provided, `AZURE_DEVOPS_ORG`.
 
+`--devops-org` overrides the current `AZURE_DEVOPS_ORG` for that install run.
+If neither is set, re-running `install.sh` keeps any previously saved org.
+
 > **Note:** the managed shell block stores the absolute path to the cloned
 > repository. If you move the repository, re-run `install.sh` to update it.
 
