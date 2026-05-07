@@ -86,7 +86,7 @@ normalize_devops_org() {
             raw="${raw#http://dev.azure.com/}" ;;
     esac
 
-    if [[ "${raw}" =~ ^https?://([^./]+)\.visualstudio\.com/?$ ]]; then
+    if [[ "${raw}" =~ ^https?://([^./]+)\.visualstudio\.com(/.*)?$ ]]; then
         raw="${BASH_REMATCH[1]}"
     fi
 
@@ -140,14 +140,9 @@ write_shell_block() {
         $0 == end { skip=0; next }
         skip { next }
         $0 == legacy { skip_legacy=1; next }
-        skip_legacy {
-            # Older installs wrote a single marker line followed by one alias line.
-            if ($0 ~ /^alias[[:space:]]+/) {
-                skip_legacy=0
-                next
-            }
-            skip_legacy=0
-        }
+        # Older installs wrote a single marker line followed by one alias line.
+        skip_legacy && $0 ~ /^alias[[:space:]]+/ { skip_legacy=0; next }
+        skip_legacy { skip_legacy=0 }
         { print }
     ' "${rc_file}" > "${tmp_file}"
 
