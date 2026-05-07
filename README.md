@@ -84,7 +84,7 @@ parts as read-only volumes before handing control to the container:
 | `~/.copilot/mcp-config.json` | parsed | — | Any absolute paths referenced by MCP servers are also mounted |
 | `~/.config/gh/` | `/root/.config/gh/` | read-only | GitHub / Copilot authentication token **(GitHub CLI mode only – not mounted in PAT mode)** |
 | `~/.local/share/gh/copilot/` | `/root/.local/share/gh/copilot/` | read-only | Pre-downloaded Copilot CLI binary (Linux hosts only; skips re-download) |
-| `~/.azure/` | `/root/.azure/` | read-write | Azure CLI credentials & MSAL token cache **(Azure CLI mode only – not mounted in PAT mode)** |
+| `~/.azure/` | — | — | Not mounted (Azure DevOps authentication is PAT-only) |
 | `<workspace>` (default: `$PWD`) | `/workspace/` | read-write | Your project files |
 
 ---
@@ -366,13 +366,7 @@ When no PAT is found in the keychain (or `secret-tool` is not installed),
 
 ---
 
-## Azure DevOps authentication
-
-The sandbox supports two mutually exclusive authentication modes for Azure
-DevOps.  The mode is chosen automatically at start-up based on whether a PAT
-is stored in your Linux keychain.
-
-### Mode A – PAT mode (recommended, least-privilege)
+## Azure DevOps authentication (PAT-only)
 
 Store a scoped Azure DevOps Personal Access Token in your Linux keychain once:
 
@@ -382,7 +376,7 @@ secret-tool store --label "Azure DevOps PAT" \
                   service azure-devops-pat account default
 ```
 
-When a PAT is found at container start:
+At container start:
 - The token is forwarded into the container as `AZURE_DEVOPS_EXT_PAT`
   (recognised by `az devops` and most ADO MCP servers).
 - `~/.azure` is **not** mounted – the container has no access to your broader
@@ -393,7 +387,7 @@ When a PAT is found at container start:
   invocations with a clear error message, preventing accidental use of Azure
   CLI with broader-than-intended permissions.
 
-To remove the PAT and revert to Azure CLI mode:
+To remove the PAT:
 
 ```bash
 secret-tool clear service azure-devops-pat account default
@@ -402,14 +396,8 @@ secret-tool clear service azure-devops-pat account default
 > **Prerequisite:** `secret-tool` must be installed on the host
 > (`sudo apt install libsecret-tools` on Debian/Ubuntu).
 
-### Mode B – Azure CLI mode (automatic fallback)
-
-When no PAT is found in the keychain (or `secret-tool` is not installed),
-`start-sandbox.sh` falls back to the original behaviour:
-- `~/.azure` is mounted **read-write** so the Azure CLI can read cached tokens
-  and persist refreshed ones across container restarts.
-- If `az` is present but no valid subscription is active at start-up, the
-  entrypoint automatically runs `az login` before launching Copilot.
+If no PAT is found in the keychain (or `secret-tool` is not installed),
+`start-sandbox.sh` exits with a clear setup message.
 
 ---
 

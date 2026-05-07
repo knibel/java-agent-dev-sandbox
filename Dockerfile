@@ -71,6 +71,11 @@ RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash \
     && rm -rf /var/lib/apt/lists/* \
     || echo "Note: Azure CLI installer not reachable; az will not be available."
 
+# Install Azure DevOps extension for `az repos`/`az devops` commands.
+# Best-effort: skipped when extension index cannot be reached.
+RUN az extension add --name azure-devops --only-show-errors --yes \
+    || echo "Note: azure-devops extension could not be installed; Azure DevOps commands may prompt at runtime."
+
 # ── SDKMAN + Java toolchains ──────────────────────────────────────────────────
 # Install SDKMAN non-interactively (best-effort).
 # If get.sdkman.io is unreachable the install-sdkman-candidates.sh script

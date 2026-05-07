@@ -13,7 +13,7 @@
 #      ~/.local/share/gh/copilot
 #                             → /root/.local/share/gh/copilot:ro
 #                                                   (pre-downloaded CLI binary)
-#      ~/.azure               → /root/.azure:ro     (Azure CLI tokens)
+#      ~/.azure               not mounted (Azure DevOps PAT-only auth)
 #      <workspace>            → /workspace:rw       (your project)
 # 3. Parses ~/.copilot/mcp-config.json and mounts any local paths that MCP
 #    server definitions reference (commands and arguments that are absolute
@@ -246,27 +246,14 @@ MOUNTS+=("-v" "${COPILOT_BINARY_CACHE}:/root/.local/share/gh/copilot:rw")
 # ── collect environment variables ─────────────────────────────────────────────
 declare -a ENV_ARGS=()
 
-# 5. Azure DevOps credentials – two mutually exclusive modes:
-#
-#    Mode A – PAT from Linux keychain (preferred, least-privilege):
-#      Read a Personal Access Token stored with:
-#        secret-tool store --label "Azure DevOps PAT" \
-#                          service azure-devops-pat account default
-#      When a PAT is found:
-#        • The token is forwarded as AZURE_DEVOPS_EXT_PAT (used by `az devops`
-#          and many ADO MCP servers).
-#        • ADO_PAT_MODE=1 is set so entrypoint.sh knows to restrict `az`:
-#          only Azure DevOps extension command groups are allowed (`az devops`,
-#          `az repos`, `az boards`, `az pipelines`, `az artifacts`) because
-#          they authenticate via AZURE_DEVOPS_EXT_PAT; all other `az` commands
-#          are blocked.
-#        • The host ~/.azure directory is NOT mounted, keeping the container
-#          isolated from broader Azure CLI credentials.
-#
-#    Mode B – Azure CLI credentials (automatic fallback):
-#      When no PAT is found (or secret-tool is not installed), ~/.azure is
-#      mounted read-write so the Azure CLI can read cached tokens and persist
-#      refreshed ones.  The container's `az login` prompt is preserved.
+# 5. Azure DevOps credentials – PAT mode only:
+#    Read a Personal Access Token stored with:
+#      secret-tool store --label "Azure DevOps PAT" \
+#                        service azure-devops-pat account default
+#    The token is forwarded as AZURE_DEVOPS_EXT_PAT (used by `az devops`
+#    and many ADO MCP servers). ADO_PAT_MODE=1 is set so entrypoint.sh knows
+#    to restrict `az` to Azure DevOps extension command groups only.
+#    The host ~/.azure directory is never mounted.
 ADO_PAT_VALUE=""
 if command -v secret-tool &>/dev/null; then
     ADO_PAT_VALUE="$(secret-tool lookup service azure-devops-pat account default 2>/dev/null || true)"
@@ -283,16 +270,15 @@ if [[ -n "${ADO_PAT_VALUE}" ]]; then
     printf 'AZURE_DEVOPS_EXT_PAT=%s\n' "${ADO_PAT_VALUE}" > "${ADO_ENV_FILE}"
 else
     if ! command -v secret-tool &>/dev/null; then
-        info "secret-tool not installed – falling back to Azure CLI credentials (~/.azure mount)"
-        info "Install libsecret-tools and store a PAT to use least-privilege PAT mode:"
-        info "  secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
+        err "secret-tool is required for Azure DevOps PAT mode."
+        err "Install libsecret-tools and store a PAT:"
+        err "  secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
     else
-        info "No Azure DevOps PAT found in keychain – falling back to Azure CLI credentials (~/.azure mount)"
-        info "To use least-privilege PAT mode:"
-        info "  secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
+        err "No Azure DevOps PAT found in keychain."
+        err "Store a PAT and retry:"
+        err "  secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
     fi
-    mkdir -p "${HOME}/.azure"
-    add_mount "${HOME}/.azure" "/root/.azure" "rw"
+    exit 1
 fi
 
 # Register a cleanup trap to remove the PAT env-files (if created) once the
