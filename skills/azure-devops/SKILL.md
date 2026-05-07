@@ -18,12 +18,17 @@ extension reads it automatically. **No `az devops login` is required.**
 
 If `AZURE_DEVOPS_ORG` was provided when the sandbox started, the default
 organization URL has already been configured via `az devops configure`.
+The sandbox also auto-injects that org as `--org https://dev.azure.com/<ORG>`
+for Azure DevOps command groups when `--org` is not explicitly provided.
 Check or set it with:
 
 ```bash
 az devops configure --list
 az devops configure --defaults organization=https://dev.azure.com/<ORG>
 ```
+
+Use `main` as the default branch for all branch-sensitive operations unless
+the user explicitly requests a different branch.
 
 ---
 
@@ -65,7 +70,7 @@ az devops invoke \
     --area git \
     --resource items \
     --route-parameters project=<PROJECT> repositoryId="${REPO_ID}" \
-    --query-parameters "path=/<PATH/TO/FILE>&versionType=branch&version=<BRANCH>" \
+    --query-parameters "path=/<PATH/TO/FILE>&versionType=branch&version=main" \
     --accept-media-type text/plain \
     --output json
 ```
@@ -75,10 +80,10 @@ az devops invoke \
 ## Create a branch
 
 ```bash
-# Resolve the commit SHA of the source branch first
+# Resolve the commit SHA of the source branch first (default: main)
 SOURCE_SHA=$(az repos ref list \
     --repo <REPO> --project <PROJECT> \
-    --filter refs/heads/<SOURCE_BRANCH> \
+    --filter refs/heads/main \
     --query "[0].objectId" -o tsv)
 
 az repos ref create \
@@ -97,7 +102,7 @@ az repos pr create \
     --repository <REPO> \
     --project <PROJECT> \
     --source-branch <SOURCE_BRANCH> \
-    --target-branch <TARGET_BRANCH> \
+    --target-branch main \
     --title "<TITLE>" \
     --description "<DESCRIPTION>"
 ```
