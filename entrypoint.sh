@@ -181,6 +181,7 @@ else
     echo "⚠  Azure DevOps PAT mode is required, but ADO_PAT_MODE is not set."
     echo "   Start the sandbox with a stored PAT:"
     echo "     secret-tool store --label 'Azure DevOps PAT' service azure-devops-pat account default"
+    exit 1
 fi
 
 # ── ensure Copilot CLI agent binary is installed ─────────────────────────────
