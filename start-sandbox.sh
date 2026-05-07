@@ -56,6 +56,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# ── shared libraries ──────────────────────────────────────────────────────────
+# shellcheck source=lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/mcp-mounts.sh
+source "${SCRIPT_DIR}/lib/mcp-mounts.sh"
+
 # ── defaults ─────────────────────────────────────────────────────────────────
 IMAGE_NAME="java-copilot-sandbox"
 WORKSPACE_DIR="$(pwd)"
@@ -95,15 +101,6 @@ while [[ $# -gt 0 ]]; do
             exit 1 ;;
     esac
 done
-
-# ── helpers ───────────────────────────────────────────────────────────────────
-log()  { echo "▶  $*"; }
-info() { echo "   $*"; }
-warn() { echo "⚠  $*" >&2; }
-
-require_cmd() {
-    command -v "$1" &>/dev/null || { warn "Required command not found: $1"; exit 1; }
-}
 
 # ── temporary workspace ───────────────────────────────────────────────────────
 if [[ "$USE_TMP_WORKSPACE" == true ]]; then
@@ -146,15 +143,6 @@ fi
 # ── collect volume mounts ─────────────────────────────────────────────────────
 declare -a MOUNTS=()
 
-# helper: add a bind-mount only if the source exists, print what we're doing
-add_mount() {
-    local src="$1" dst="$2" opts="${3:-ro}"
-    if [[ -e "$src" ]]; then
-        info "Mounting  ${src}  →  ${dst}  (${opts})"
-        MOUNTS+=("-v" "${src}:${dst}:${opts}")
-    fi
-}
-
 # 1. ~/.copilot  ─  custom instructions AND ~/.copilot/mcp-config.json (read-only)
 #    Mounted at a staging path (/root/.copilot-host) so that entrypoint.sh can
 #    copy the contents into /root/.copilot (a plain container-local directory)
@@ -172,57 +160,7 @@ add_mount "${HOME}/.copilot/session-state" "/root/.copilot/session-state" "rw"
 # 2. Parse MCP config for local server paths so those binaries/scripts are
 #    accessible inside the container.
 MCP_CONFIG="${HOME}/.copilot/mcp-config.json"
-if [[ -f "${MCP_CONFIG}" ]] && command -v jq &>/dev/null; then
-    log "Scanning MCP config for local paths …"
-
-    # Collect every string value under .mcpServers or .servers that starts with /
-    # Covers both "command": "/abs/path" and "args": ["/abs/path", ...]
-    while IFS= read -r raw_path; do
-        [[ -z "$raw_path" ]] && continue
-
-        # Normalise: if it's a file, find the best ancestor directory to mount.
-        # For files inside a virtual-environment (.venv / venv / env / .env) or
-        # node_modules, mount the project root (the parent of that directory)
-        # so the interpreter and all dependencies are accessible at their
-        # original absolute paths inside the container.
-        # For ordinary files just use the immediate parent directory.
-        if [[ -f "$raw_path" ]]; then
-            local_dir="$(dirname "$raw_path")"
-            check_dir="$local_dir"
-            while [[ "$check_dir" != "/" && "$check_dir" != "$HOME" ]]; do
-                dir_base="$(basename "$check_dir")"
-                if [[ "$dir_base" == ".venv" || "$dir_base" == "venv" || \
-                      "$dir_base" == "env"  || "$dir_base" == ".env" || \
-                      "$dir_base" == "node_modules" ]]; then
-                    local_dir="$(dirname "$check_dir")"
-                    break
-                fi
-                check_dir="$(dirname "$check_dir")"
-            done
-        elif [[ -d "$raw_path" ]]; then
-            local_dir="$raw_path"
-        else
-            # Path doesn't exist on this host – skip silently
-            continue
-        fi
-
-        # Avoid duplicate mounts of the same directory
-        already_mounted=false
-        for m in "${MOUNTS[@]}"; do
-            [[ "$m" == "${local_dir}:${local_dir}:ro" ]] && already_mounted=true && break
-        done
-        $already_mounted && continue
-
-        info "MCP path  ${local_dir}  →  ${local_dir}  (ro)"
-        MOUNTS+=("-v" "${local_dir}:${local_dir}:ro")
-    done < <(jq -r '
-        ( .mcpServers // .servers // {} ) |
-        to_entries[].value |
-        ( [.command // empty] + (.args // []) ) |
-        .[] |
-        select(type == "string" and startswith("/"))
-    ' "${MCP_CONFIG}" 2>/dev/null || true)
-fi
+scan_mcp_paths "${MCP_CONFIG}"
 
 # 3. GitHub CLI config  ─  stores the Copilot auth token
 #    Not mounted in GitHub PAT mode – the container authenticates via GH_TOKEN only.
