@@ -63,6 +63,36 @@ if command -v jq &>/dev/null \
     fi
 fi
 
+# ── Azure DevOps native skill ─────────────────────────────────────────────────
+# Install the built-in Azure DevOps skill so Copilot can use the az CLI
+# (az repos, az devops) directly for repository and PR workflows without an
+# MCP server.  AZURE_DEVOPS_EXT_PAT is already in the environment; the Azure
+# DevOps CLI extension reads it automatically – no az devops login needed.
+#
+# When AZURE_DEVOPS_ORG is provided the default organization URL is also
+# pre-configured via az devops configure so commands don't need --org.
+#
+# The skill directory is only installed when not already present, letting
+# users override it with their own ~/.copilot/skills/azure-devops/ directory.
+if [[ -n "${ADO_PAT_MODE:-}" ]]; then
+    # Configure az devops organization default when the org is known.
+    if [[ -n "${AZURE_DEVOPS_ORG:-}" ]] && command -v az &>/dev/null; then
+        az devops configure --defaults \
+            "organization=https://dev.azure.com/${AZURE_DEVOPS_ORG}" \
+            2>/dev/null || true
+        echo "✓  Azure DevOps default org set (https://dev.azure.com/${AZURE_DEVOPS_ORG})"
+    fi
+
+    # Copy skill from image location into the user skills directory.
+    SKILL_SRC="/usr/local/share/copilot-skills/azure-devops"
+    SKILL_DST="/root/.copilot/skills/azure-devops"
+    if [[ -d "${SKILL_SRC}" && ! -d "${SKILL_DST}" ]]; then
+        mkdir -p /root/.copilot/skills
+        cp -r "${SKILL_SRC}" "${SKILL_DST}"
+        echo "✓  Azure DevOps native skill installed"
+    fi
+fi
+
 # ── Java LSP native skill (fallback when MCP is disabled) ────────────────────
 # Copilot CLI has built-in LSP support via ~/.copilot/lsp-config.json.
 # When MCP is disabled (or not available), Copilot falls back to this native

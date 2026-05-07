@@ -378,7 +378,7 @@ secret-tool store --label "Azure DevOps PAT" \
 
 At container start:
 - The token is forwarded into the container as `AZURE_DEVOPS_EXT_PAT`
-  (recognised by `az devops` and most ADO MCP servers).
+  (read automatically by the `az devops` extension — no login needed).
 - `~/.azure` is **not** mounted – the container has no access to your broader
   Azure CLI credentials.
 - The `az` binary inside the container is replaced by a wrapper that allows
@@ -386,6 +386,30 @@ At container start:
   `az boards`, `az pipelines`, `az artifacts`) and refuses all other
   invocations with a clear error message, preventing accidental use of Azure
   CLI with broader-than-intended permissions.
+- The built-in **Azure DevOps native skill** (`skills/azure-devops/SKILL.md`)
+  is installed into `~/.copilot/skills/azure-devops/` automatically.  Copilot
+  loads this skill when you ask about repositories, branches, or pull requests.
+
+Optionally set your Azure DevOps organization before launching so that `az`
+commands don't need `--org` on every call:
+
+```bash
+export AZURE_DEVOPS_ORG="contoso"
+./start-sandbox.sh
+```
+
+### What the Azure DevOps skill can do
+
+| Operation | How Copilot does it |
+|---|---|
+| List repositories | `az repos list` |
+| Read a file | `git clone` with PAT, or `az devops invoke` (items API) |
+| Create a branch | `az repos ref create` |
+| Create a pull request | `az repos pr create` |
+| List / read PR comments | `az devops invoke` (pullRequestThreads API) |
+| Post inline PR suggestion | `az devops invoke` (pullRequestThreads POST) |
+| Reply to a PR thread | `az devops invoke` (pullRequestThreadComments POST) |
+| Update a pull request | `az repos pr update` |
 
 To remove the PAT:
 
