@@ -106,7 +106,7 @@ if command -v jq &>/dev/null && command -v npx &>/dev/null && [[ -n "${ADO_PAT_M
             fi
         fi
     else
-        echo "ℹ  Azure DevOps PAT detected, but AZURE_DEVOPS_ORG is not set; set AZURE_DEVOPS_ORG=<organization> on the host to enable the native Azure DevOps MCP skill."
+        echo "ℹ  Azure DevOps PAT detected without AZURE_DEVOPS_ORG. Set AZURE_DEVOPS_ORG=<organization> to enable the native Azure DevOps MCP skill."
     fi
 fi
 
