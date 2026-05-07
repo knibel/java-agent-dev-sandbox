@@ -95,7 +95,7 @@ RUN bash /tmp/install-sdkman-candidates.sh \
 # Best-effort: skipped silently when eclipse.org is unreachable so the image
 # still builds in network-restricted environments.
 RUN mkdir -p /opt/jdtls \
-    && curl -fsSL \
+    && curl -fsSL --connect-timeout 30 --max-time 300 \
         "https://download.eclipse.org/jdtls/snapshots/jdt-language-server-latest.tar.gz" \
         -o /tmp/jdtls.tar.gz \
     && tar -xzf /tmp/jdtls.tar.gz -C /opt/jdtls \
