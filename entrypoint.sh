@@ -92,6 +92,8 @@ if command -v jq &>/dev/null && command -v npx &>/dev/null && [[ -n "${ADO_PAT_M
             tmp_cfg="$(mktemp)"
             # Domain flags (-d) limit which ADO tool groups are exposed; tools=["*"]
             # then enables all tools within those selected domains only.
+            # We enable core + repositories + search because they cover repo/PR
+            # workflows and code/file lookup while avoiding unrelated domains.
             if jq --arg org "${AZURE_DEVOPS_ORG}" '.mcpServers["azure-devops"] = {
                 "command": "npx",
                 "args": ["-y", "@azure-devops/mcp", $org, "--authentication", "pat", "-d", "core", "-d", "repositories", "-d", "search"],
@@ -104,8 +106,7 @@ if command -v jq &>/dev/null && command -v npx &>/dev/null && [[ -n "${ADO_PAT_M
             fi
         fi
     else
-        echo "ℹ  Azure DevOps PAT detected, but AZURE_DEVOPS_ORG is not set."
-        echo "   Set AZURE_DEVOPS_ORG=<organization> on the host to enable the native Azure DevOps MCP skill."
+        echo "ℹ  Azure DevOps PAT detected, but AZURE_DEVOPS_ORG is not set; set AZURE_DEVOPS_ORG=<organization> on the host to enable the native Azure DevOps MCP skill."
     fi
 fi
 
