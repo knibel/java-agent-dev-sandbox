@@ -398,6 +398,11 @@ export AZURE_DEVOPS_ORG="contoso"
 ./start-sandbox.sh
 ```
 
+When `AZURE_DEVOPS_ORG` is set, the sandbox also auto-appends
+`--org https://dev.azure.com/<ORG>` for Azure DevOps command groups if omitted.
+The built-in Azure DevOps skill treats `main` as the default branch unless a
+different branch is explicitly requested.
+
 ### What the Azure DevOps skill can do
 
 | Operation | How Copilot does it |

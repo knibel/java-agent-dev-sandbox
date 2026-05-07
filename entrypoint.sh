@@ -195,6 +195,18 @@ if [[ -n "${ADO_PAT_MODE:-}" ]]; then
 # In PAT mode, only Azure DevOps extension command groups are permitted.
 case "\${1:-}" in
     devops|repos|boards|pipelines|artifacts)
+        if [[ -n "\${AZURE_DEVOPS_ORG:-}" ]]; then
+            _has_org_flag=0
+            for _arg in "\$@"; do
+                if [[ "\${_arg}" == "--org" || "\${_arg}" == "--organization" ]]; then
+                    _has_org_flag=1
+                    break
+                fi
+            done
+            if [[ "\${_has_org_flag}" -eq 0 ]]; then
+                exec "${_real_az}" "\$@" --org "https://dev.azure.com/\${AZURE_DEVOPS_ORG}"
+            fi
+        fi
         exec "${_real_az}" "\$@"
         ;;
 esac
