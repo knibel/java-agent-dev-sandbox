@@ -266,7 +266,7 @@ fi
 
 # ── collect environment variables ─────────────────────────────────────────────
 
-# 5. Azure DevOps credentials – optional PAT mode:
+# 6. Azure DevOps credentials – optional PAT mode:
 #    Read a Personal Access Token stored with:
 #      secret-tool store --label "Azure DevOps PAT" \
 #                        service azure-devops-pat account default
@@ -315,7 +315,7 @@ if [[ -n "${ADO_ENV_FILE}" ]]; then
     ADO_ENV_FILE_ARGS+=("--env-file" "${ADO_ENV_FILE}")
 fi
 
-# 5a. Optional Azure DevOps organization name:
+# 6a. Optional Azure DevOps organization name:
 #     AZURE_DEVOPS_ORG is forwarded into the container so entrypoint.sh can
 #     pre-configure az devops defaults (az devops configure) and include the
 #     org in the Azure DevOps native skill instructions.
@@ -326,7 +326,7 @@ fi
 
 declare -a GH_ENV_FILE_ARGS=()
 
-# 6. GitHub credentials – two mutually exclusive modes:
+# 7. GitHub credentials – two mutually exclusive modes:
 #
 #    Mode A – PAT from Linux keychain (preferred, least-privilege):
 #      Read a Personal Access Token stored with:
@@ -363,7 +363,7 @@ elif command -v gh &>/dev/null; then
     warn "Run 'gh auth login' on the host first, or the container may prompt for login."
 fi
 
-# 7. Workspace directory (read-write so Copilot can edit files)
+# 8. Workspace directory (read-write so Copilot can edit files)
 if [[ -d "${WORKSPACE_DIR}" ]]; then
     info "Workspace ${WORKSPACE_DIR}  →  /workspace  (rw)"
     MOUNTS+=("-v" "${WORKSPACE_DIR}:/workspace")
