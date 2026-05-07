@@ -51,7 +51,7 @@ az repos show --repo <REPO> --project <PROJECT>
 CLONE_URL=$(az repos show --repo <REPO> --project <PROJECT> \
     --query remoteUrl -o tsv)
 # Use GIT_ASKPASS to supply the PAT without exposing it in the process list
-GIT_ASKPASS_SCRIPT=$(mktemp) && chmod 700 "${GIT_ASKPASS_SCRIPT}"
+GIT_ASKPASS_SCRIPT=$(mktemp -t ado-askpass-XXXXXX) && chmod 700 "${GIT_ASKPASS_SCRIPT}"
 printf '#!/bin/sh\necho "${AZURE_DEVOPS_EXT_PAT}"\n' > "${GIT_ASKPASS_SCRIPT}"
 GIT_ASKPASS="${GIT_ASKPASS_SCRIPT}" git clone "${CLONE_URL}" /tmp/<REPO>
 rm -f "${GIT_ASKPASS_SCRIPT}"
@@ -145,7 +145,7 @@ Create a uniquely-named temp file with the thread payload, post it, then clean u
 ```bash
 REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --query id -o tsv)
 
-ADO_THREAD_FILE=$(mktemp /tmp/ado-thread-XXXXXX.json)
+ADO_THREAD_FILE=$(mktemp -t ado-thread-XXXXXX)
 cat > "${ADO_THREAD_FILE}" << 'PAYLOAD'
 {
   "comments": [
@@ -183,7 +183,7 @@ rm -f "${ADO_THREAD_FILE}"
 ```bash
 REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --query id -o tsv)
 
-ADO_REPLY_FILE=$(mktemp /tmp/ado-reply-XXXXXX.json)
+ADO_REPLY_FILE=$(mktemp -t ado-reply-XXXXXX)
 cat > "${ADO_REPLY_FILE}" << 'PAYLOAD'
 {
   "comments": [
