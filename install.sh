@@ -13,6 +13,7 @@
 #
 #      export AZURE_DEVOPS_ORG=contoso     # optional
 #      alias copilot-sandbox='/path/to/start-sandbox.sh --no-build'
+#      # (plus tab-completion for Bash and Zsh)
 #
 #    The alias always mounts $PWD (evaluated at call time) as /workspace and
 #    starts the Copilot CLI there.
@@ -143,6 +144,7 @@ if [[ ${#RC_FILES[@]} -eq 0 ]]; then
         echo "  export AZURE_DEVOPS_ORG=$(shell_escape "${DEVOPS_ORG}")"
     fi
     echo "  alias ${ALIAS_NAME}=$(shell_escape "${SCRIPT_DIR}/start-sandbox.sh --no-build")"
+    echo "  # (plus tab-completion – re-run install.sh from a terminal with ~/.bashrc or ~/.zshrc)"
     echo "  ${MANAGED_BLOCK_END}"
     echo ""
     exit 0

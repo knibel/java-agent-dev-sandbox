@@ -283,3 +283,61 @@ EOF
     rm -f "$rc"
     [ "$status" -eq 0 ]
 }
+
+# ── write_shell_block: completion ─────────────────────────────────────────────
+
+@test "write_shell_block: writes bash completion function into the managed block" {
+    local rc
+    rc="$(mktemp)"
+    > "$rc"
+    write_shell_block "$rc" "" "copilot-sandbox" "/path/start-sandbox.sh --no-build"
+    run grep "complete -F _copilot_sandbox_complete copilot-sandbox" "$rc"
+    rm -f "$rc"
+    [ "$status" -eq 0 ]
+}
+
+@test "write_shell_block: writes zsh completion registration into the managed block" {
+    local rc
+    rc="$(mktemp)"
+    > "$rc"
+    write_shell_block "$rc" "" "copilot-sandbox" "/path/start-sandbox.sh --no-build"
+    run grep "compdef _copilot_sandbox_complete copilot-sandbox" "$rc"
+    rm -f "$rc"
+    [ "$status" -eq 0 ]
+}
+
+@test "write_shell_block: completion function name matches a custom alias name" {
+    local rc
+    rc="$(mktemp)"
+    > "$rc"
+    write_shell_block "$rc" "" "my-sandbox" "/path/start-sandbox.sh --no-build"
+    run grep "complete -F _my_sandbox_complete my-sandbox" "$rc"
+    rm -f "$rc"
+    [ "$status" -eq 0 ]
+}
+
+@test "write_shell_block: completion block appears exactly once after re-run" {
+    local rc
+    rc="$(mktemp)"
+    > "$rc"
+    write_shell_block "$rc" "" "copilot-sandbox" "/path/start-sandbox.sh --no-build"
+    write_shell_block "$rc" "" "copilot-sandbox" "/path/start-sandbox.sh --no-build"
+    run bash -c "grep -c 'complete -F _copilot_sandbox_complete' '$rc'"
+    rm -f "$rc"
+    [ "$status" -eq 0 ]
+    [ "$output" = "1" ]
+}
+
+@test "write_shell_block: completion covers key launcher flags" {
+    local rc
+    rc="$(mktemp)"
+    > "$rc"
+    write_shell_block "$rc" "" "copilot-sandbox" "/path/start-sandbox.sh --no-build"
+    run grep "\-\-workspace" "$rc"
+    [ "$status" -eq 0 ]
+    run grep "\-\-no-build" "$rc"
+    [ "$status" -eq 0 ]
+    run grep "\-\-build-arg" "$rc"
+    rm -f "$rc"
+    [ "$status" -eq 0 ]
+}
