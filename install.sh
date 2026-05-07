@@ -112,9 +112,9 @@ extract_saved_devops_org() {
     )"
 
     value="${line#export AZURE_DEVOPS_ORG=}"
-    if [[ "${value}" == \'*\' && "${value}" == *\' ]]; then
+    if [[ -n "${value}" && "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
         value="${value:1:-1}"
-    elif [[ "${value}" == \"*\" && "${value}" == *\" ]]; then
+    elif [[ -n "${value}" && "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
         value="${value:1:-1}"
     fi
 
