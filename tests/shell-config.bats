@@ -184,6 +184,36 @@ EOF
     [ "$output" = "contoso" ]
 }
 
+# ── extract_saved_alias_name ───────────────────────────────────────────────────
+
+@test "extract_saved_alias_name: reads alias from managed block" {
+    local rc
+    rc="$(mktemp)"
+    cat > "$rc" <<'EOF'
+# >>> java-agent-dev-sandbox >>>
+alias my-sandbox=/some/path/start-sandbox.sh
+# <<< java-agent-dev-sandbox <<<
+EOF
+    run extract_saved_alias_name "$rc"
+    rm -f "$rc"
+    [ "$status" -eq 0 ]
+    [ "$output" = "my-sandbox" ]
+}
+
+@test "extract_saved_alias_name: returns empty when no alias is present" {
+    local rc
+    rc="$(mktemp)"
+    cat > "$rc" <<'EOF'
+# >>> java-agent-dev-sandbox >>>
+export AZURE_DEVOPS_ORG=contoso
+# <<< java-agent-dev-sandbox <<<
+EOF
+    run extract_saved_alias_name "$rc"
+    rm -f "$rc"
+    [ "$status" -eq 0 ]
+    [ "$output" = "" ]
+}
+
 # ── write_shell_block ─────────────────────────────────────────────────────────
 
 @test "write_shell_block: adds managed block to an empty file" {
@@ -338,6 +368,16 @@ EOF
     run grep "\-\-no-build" "$rc"
     [ "$status" -eq 0 ]
     run grep "\-\-build-arg" "$rc"
+    rm -f "$rc"
+    [ "$status" -eq 0 ]
+}
+
+@test "write_shell_block: completion includes auto-update flag" {
+    local rc
+    rc="$(mktemp)"
+    > "$rc"
+    write_shell_block "$rc" "" "copilot-sandbox" "/path/start-sandbox.sh --no-build"
+    run grep "\-\-auto-update" "$rc"
     rm -f "$rc"
     [ "$status" -eq 0 ]
 }
