@@ -88,12 +88,41 @@ az devops invoke \
     --accept-media-type text/plain \
     --org "${ADO_ORG_URL}" \
     --out-file "${OUTFILE}"
-cat "${OUTFILE}"
+if [[ -f "${OUTFILE}" ]]; then
+    cat "${OUTFILE}"
+else
+    echo "Failed to fetch /<PATH/TO/FILE>: az devops invoke did not create ${OUTFILE}" >&2
+    rm -f "${OUTFILE}"
+    exit 1
+fi
 rm -f "${OUTFILE}"
 ```
 
 `--accept-media-type text/plain` returns raw file content, not JSON.
 Use `--out-file` and read the file afterwards (for example with `cat`/`grep`).
+Check that the file was actually created before reading it, because failed
+requests can leave no output file behind.
+
+---
+
+## List directory contents
+
+```bash
+REPO_ID=$(az repos show --repo <REPO> --project <PROJECT> --org "${ADO_ORG_URL}" --query id -o tsv)
+
+az devops invoke \
+    --area git \
+    --resource items \
+    --route-parameters project=<PROJECT> repositoryId="${REPO_ID}" \
+    --query-parameters "scopePath=/<DIRECTORY/PATH>&recursionLevel=Full&versionType=branch&version=main" \
+    --http-method GET \
+    --org "${ADO_ORG_URL}" \
+    --output json
+```
+
+Use `scopePath` when combining a directory query with `recursionLevel`.
+Using `path=...&recursionLevel=...` causes the Azure DevOps API to reject the
+request.
 
 ---
 
