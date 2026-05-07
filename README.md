@@ -30,6 +30,9 @@ cd java-agent-dev-sandbox
 # 2. Run the install script (builds the image + registers a shell alias)
 chmod +x install.sh && ./install.sh
 
+# Optional: persist your Azure DevOps org for future sandbox runs
+./install.sh --devops-org contoso
+
 # 3. Reload your shell config
 source ~/.bashrc   # or ~/.zshrc
 ```
@@ -65,11 +68,15 @@ Subsequent runs reuse the cached image and start in seconds.
 Options
   --no-build          Skip the initial Docker image build
   --alias <name>      Alias name to register  (default: copilot-sandbox)
+  --devops-org <org>  Persist the Azure DevOps org for future sandbox runs
   -h, --help          Show help
 ```
 
-> **Note:** the alias stores the absolute path to the cloned repository.
-> If you move the repository, re-run `install.sh` to update the alias.
+The install script manages a small block in `~/.bashrc` / `~/.zshrc` containing
+the sandbox alias and, when provided, `AZURE_DEVOPS_ORG`.
+
+> **Note:** the managed shell block stores the absolute path to the cloned
+> repository. If you move the repository, re-run `install.sh` to update it.
 
 ---
 
@@ -390,8 +397,15 @@ At container start:
   is installed into `~/.copilot/skills/azure-devops/` automatically.  Copilot
   loads this skill when you ask about repositories, branches, or pull requests.
 
-Optionally set your Azure DevOps organization before launching so that `az`
-commands don't need `--org` on every call:
+You can persist your Azure DevOps organization during install so Copilot and
+the Azure DevOps skill always start with the same default org:
+
+```bash
+./install.sh --devops-org contoso
+```
+
+Or set it manually before launching so that `az` commands don't need `--org` on
+every call:
 
 ```bash
 export AZURE_DEVOPS_ORG="contoso"
