@@ -44,6 +44,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKIP_BUILD=false
 ALIAS_NAME="copilot-sandbox"
 DEVOPS_ORG_INPUT=""
+MANAGED_BLOCK_START="# >>> java-agent-dev-sandbox >>>"
+MANAGED_BLOCK_END="# <<< java-agent-dev-sandbox <<<"
+LEGACY_MARKER="# java-agent-dev-sandbox"
 
 # ── argument parsing ──────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -105,7 +108,7 @@ extract_saved_devops_org() {
     local line value
 
     line="$(
-        sed -n '/^# >>> java-agent-dev-sandbox >>>$/, /^# <<< java-agent-dev-sandbox <<<$/p' "${rc_file}" \
+        sed -n "\%^${MANAGED_BLOCK_START}\$%,\%^${MANAGED_BLOCK_END}\$%p" "${rc_file}" \
             | grep '^export AZURE_DEVOPS_ORG=' \
             | head -1 \
             || true
@@ -130,14 +133,15 @@ write_shell_block() {
     tmp_file="$(mktemp)"
 
     awk \
-        -v start="# >>> java-agent-dev-sandbox >>>" \
-        -v end="# <<< java-agent-dev-sandbox <<<" \
-        -v legacy="# java-agent-dev-sandbox" '
+        -v start="${MANAGED_BLOCK_START}" \
+        -v end="${MANAGED_BLOCK_END}" \
+        -v legacy="${LEGACY_MARKER}" '
         $0 == start { skip=1; next }
         $0 == end { skip=0; next }
         skip { next }
         $0 == legacy { skip_legacy=1; next }
         skip_legacy {
+            # Older installs wrote a single marker line followed by one alias line.
             if ($0 ~ /^alias[[:space:]]+/) {
                 skip_legacy=0
                 next
@@ -147,12 +151,12 @@ write_shell_block() {
         { print }
     ' "${rc_file}" > "${tmp_file}"
 
-    printf '\n# >>> java-agent-dev-sandbox >>>\n' >> "${tmp_file}"
+    printf '\n%s\n' "${MANAGED_BLOCK_START}" >> "${tmp_file}"
     if [[ -n "${org_value}" ]]; then
         printf 'export AZURE_DEVOPS_ORG=%s\n' "$(shell_escape "${org_value}")" >> "${tmp_file}"
     fi
     printf 'alias %s=%s\n' "${ALIAS_NAME}" "$(shell_escape "${alias_command}")" >> "${tmp_file}"
-    printf '# <<< java-agent-dev-sandbox <<<\n' >> "${tmp_file}"
+    printf '%s\n' "${MANAGED_BLOCK_END}" >> "${tmp_file}"
 
     mv "${tmp_file}" "${rc_file}"
 }
@@ -220,12 +224,12 @@ if [[ ${#RC_FILES[@]} -eq 0 ]]; then
     warn "Neither ~/.bashrc nor ~/.zshrc was found."
     warn "Add the following shell config block manually:"
     echo ""
-    echo "  # >>> java-agent-dev-sandbox >>>"
+    echo "  ${MANAGED_BLOCK_START}"
     if [[ -n "${DEVOPS_ORG}" ]]; then
         echo "  export AZURE_DEVOPS_ORG=$(shell_escape "${DEVOPS_ORG}")"
     fi
     echo "  alias ${ALIAS_NAME}=$(shell_escape "${SCRIPT_DIR}/start-sandbox.sh --no-build")"
-    echo "  # <<< java-agent-dev-sandbox <<<"
+    echo "  ${MANAGED_BLOCK_END}"
     echo ""
     exit 0
 fi
@@ -237,8 +241,8 @@ for rc in "${RC_FILES[@]}"; do
         SAVED_DEVOPS_ORG="$(extract_saved_devops_org "${rc}")"
     fi
 
-    if grep -qF "# >>> java-agent-dev-sandbox >>>" "${rc}" 2>/dev/null \
-            || grep -qF "# java-agent-dev-sandbox" "${rc}" 2>/dev/null; then
+    if grep -qF "${MANAGED_BLOCK_START}" "${rc}" 2>/dev/null \
+            || grep -qF "${LEGACY_MARKER}" "${rc}" 2>/dev/null; then
         ACTION="updated"
     else
         ACTION="added"
