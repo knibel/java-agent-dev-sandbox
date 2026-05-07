@@ -229,7 +229,7 @@ perform_release_update() {
     extracted_tree="$(extract_archive_tree "${archive_path}" "${extract_dir}")"
     if [[ "${download_mode}" == "tarball" ]]; then
         tag_commit="$(resolve_release_tag_commit "${latest_tag}")"
-        if [[ -z "${tag_commit}" || ! verify_tarball_tree_matches_tag "${extracted_tree}" "${tag_commit}" ]]; then
+        if [[ -z "${tag_commit}" ]] || ! verify_tarball_tree_matches_tag "${extracted_tree}" "${tag_commit}"; then
             rm -rf "${tmp_root}"
             warn "Downloaded release tarball did not match the expected release tag commit."
             exit 1
