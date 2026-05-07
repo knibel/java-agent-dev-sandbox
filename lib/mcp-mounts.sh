@@ -16,6 +16,10 @@
 [[ -n "${_LIB_MCP_MOUNTS_LOADED:-}" ]] && return 0
 _LIB_MCP_MOUNTS_LOADED=1
 
+# Pull in shared logging helpers (log, info, warn, …).
+# shellcheck source=lib/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
 # add_mount <src> <dst> [<opts>]
 # ───────────────────────────────
 # Appends a Docker bind-mount entry to the MOUNTS array when <src> exists on
@@ -24,7 +28,7 @@ _LIB_MCP_MOUNTS_LOADED=1
 add_mount() {
     local src="$1" dst="$2" opts="${3:-ro}"
     if [[ -e "$src" ]]; then
-        echo "   Mounting  ${src}  →  ${dst}  (${opts})"
+        info "Mounting  ${src}  →  ${dst}  (${opts})"
         MOUNTS+=("-v" "${src}:${dst}:${opts}")
     fi
 }
@@ -82,8 +86,7 @@ scan_mcp_paths() {
         return 0
     fi
 
-    echo "▶  Scanning MCP config for local paths …"
-
+    log "Scanning MCP config for local paths …"
     local raw_path local_dir already_mounted m
 
     while IFS= read -r raw_path; do
@@ -100,7 +103,7 @@ scan_mcp_paths() {
         done
         $already_mounted && continue
 
-        echo "   MCP path  ${local_dir}  →  ${local_dir}  (ro)"
+        info "MCP path  ${local_dir}  →  ${local_dir}  (ro)"
         MOUNTS+=("-v" "${local_dir}:${local_dir}:ro")
     done < <(jq -r '
         ( .mcpServers // .servers // {} ) |
