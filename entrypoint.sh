@@ -79,7 +79,7 @@ if command -v jq &>/dev/null && command -v npx &>/dev/null && [[ -n "${ADO_PAT_M
     if [[ -z "${PERSONAL_ACCESS_TOKEN:-}" && -n "${AZURE_DEVOPS_EXT_PAT:-}" ]]; then
         export PERSONAL_ACCESS_TOKEN
         # "mcp" is a non-empty placeholder username; ADO PAT auth uses only the PAT.
-        PERSONAL_ACCESS_TOKEN="$(printf 'mcp:%s' "${AZURE_DEVOPS_EXT_PAT}" | base64 -w 0)"
+        PERSONAL_ACCESS_TOKEN="$(printf 'mcp:%s' "${AZURE_DEVOPS_EXT_PAT}" | base64 | tr -d '\n')"
     fi
 
     if [[ -n "${AZURE_DEVOPS_ORG:-}" ]]; then
