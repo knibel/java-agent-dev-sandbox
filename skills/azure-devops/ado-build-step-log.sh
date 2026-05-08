@@ -77,7 +77,9 @@ selector_count=0
 [[ "${selector_count}" -eq 1 ]] || die "Specify exactly one of --step-name, --record-id, or --task-id"
 
 if [[ -z "${ORG_URL}" ]]; then
-    ORG_URL="${AZURE_DEVOPS_ORG:+https://dev.azure.com/${AZURE_DEVOPS_ORG}}"
+    if [[ -n "${AZURE_DEVOPS_ORG:-}" ]]; then
+        ORG_URL="https://dev.azure.com/${AZURE_DEVOPS_ORG}"
+    fi
 fi
 if [[ -z "${ORG_URL}" ]]; then
     ORG_URL="$(az devops configure --list --query 'defaults.organization' -o tsv 2>/dev/null || true)"

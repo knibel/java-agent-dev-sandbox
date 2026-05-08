@@ -73,7 +73,7 @@ if [[ "${1:-}" == "devops" && "${2:-}" == "invoke" ]]; then
 fi
 
 if [[ "${1:-}" == "devops" && "${2:-}" == "configure" && "${3:-}" == "--list" ]]; then
-    printf ''
+    :
     exit 0
 fi
 
