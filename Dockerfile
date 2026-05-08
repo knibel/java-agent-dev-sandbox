@@ -12,7 +12,7 @@ RUN set -eux; \
     if GOBIN=/out go install github.com/isaacphi/mcp-language-server@latest; then \
         echo "Built mcp-language-server"; \
     else \
-        echo "Note: Go / mcp-language-server could not be installed; Java LSP navigation will not be available."; \
+        echo "Note: mcp-language-server build failed in builder stage; Java LSP navigation will not be available."; \
         touch /out/.mcp-language-server-unavailable; \
     fi
 
@@ -148,7 +148,7 @@ COPY --from=mcp-language-server-builder /out /tmp/mcp-language-server-build
 RUN if [ -x /tmp/mcp-language-server-build/mcp-language-server ]; then \
         cp /tmp/mcp-language-server-build/mcp-language-server /usr/local/bin/mcp-language-server; \
     else \
-        echo "Note: Go / mcp-language-server could not be installed; Java LSP navigation will not be available."; \
+        echo "Note: mcp-language-server build failed in builder stage; Java LSP navigation will not be available."; \
     fi \
     && rm -rf /tmp/mcp-language-server-build
 
