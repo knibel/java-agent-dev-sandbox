@@ -149,7 +149,7 @@ RUN if [ -x /tmp/mcp-language-server-build/mcp-language-server ]; then \
     else \
         echo "Note: mcp-language-server build failed in builder stage; Java LSP navigation will not be available."; \
     fi \
-    && rm -rf /tmp/mcp-language-server-build
+    ; rm -rf /tmp/mcp-language-server-build
 
 # Make SDKMAN candidate binaries available without sourcing init in every RUN
 ENV PATH="\
