@@ -442,9 +442,9 @@ At container start:
   Azure CLI credentials.
 - The `az` binary inside the container is replaced by a wrapper that allows
   only Azure DevOps extension command groups (`az devops`, `az repos`,
-  `az boards`, `az pipelines`, `az artifacts`) and refuses all other
-  invocations with a clear error message, preventing accidental use of Azure
-  CLI with broader-than-intended permissions.
+  `az boards`, `az pipelines`, `az artifacts`), plus `az login`,
+  `az account ...`, and `az acr ...` for ACR authentication, and refuses all
+  other invocations with a clear error message.
 - The built-in **Azure DevOps native skill** (`skills/azure-devops/SKILL.md`)
   is installed into `~/.copilot/skills/azure-devops/` automatically.  Copilot
   loads this skill when you ask about repositories, branches, or pull requests.

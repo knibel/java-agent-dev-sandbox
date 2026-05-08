@@ -272,7 +272,8 @@ fi
 #                        service azure-devops-pat account default
 #    The token is forwarded as AZURE_DEVOPS_EXT_PAT (used by `az devops`
 #    and the native Azure DevOps skill in entrypoint.sh). ADO_PAT_MODE=1 is set so entrypoint.sh knows
-#    to restrict `az` to Azure DevOps extension command groups only.
+#    to restrict `az` mostly to Azure DevOps extension command groups while still
+#    allowing `az login`, `az account ...`, and `az acr ...` for ACR flows.
 #    The host ~/.azure directory is never mounted.
 #    If no PAT is found, the sandbox still starts; Azure DevOps features are
 #    simply unavailable.
@@ -282,7 +283,7 @@ if command -v secret-tool &>/dev/null; then
 fi
 
 if [[ -n "${ADO_PAT_VALUE}" ]]; then
-    info "Azure DevOps PAT found in keychain – using PAT mode (only Azure DevOps az command groups allowed)"
+    info "Azure DevOps PAT found in keychain – using PAT mode (Azure DevOps command groups plus az login/account/acr allowed)"
     ENV_ARGS+=("-e" "ADO_PAT_MODE=1")
     # Write the PAT to a private temp env-file so it does not appear in the
     # docker run command line or `ps` output.  The file is removed after the

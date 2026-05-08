@@ -173,11 +173,11 @@ fi
 #   • az is shadowed by a wrapper script that passes Azure DevOps extension
 #     command groups (e.g. `az repos`, `az boards`, `az pipelines`,
 #     `az artifacts`, `az devops`) through to the real binary (they
-#     authenticate via AZURE_DEVOPS_EXT_PAT) while refusing all other az
-#     invocations, preventing MCP servers or the user from accidentally
-#     calling az with broader-than-intended credentials.
+#     authenticate via AZURE_DEVOPS_EXT_PAT). It also permits `az login`,
+#     `az account ...`, and `az acr ...` so users can authenticate and log in
+#     to Azure Container Registry from inside the sandbox.
 if [[ -n "${ADO_PAT_MODE:-}" ]]; then
-    echo "ℹ  PAT mode: Azure DevOps access via AZURE_DEVOPS_EXT_PAT (only Azure DevOps az command groups allowed)"
+    echo "ℹ  PAT mode: Azure DevOps access via AZURE_DEVOPS_EXT_PAT (Azure DevOps command groups plus az login/account/acr are allowed)"
     # Shadow the az binary so that broader Azure CLI commands fail with a clear
     # message instead of operating silently on a different auth context.
     # Exception: Azure DevOps extension command groups are passed through to the
@@ -192,9 +192,10 @@ if [[ -n "${ADO_PAT_MODE:-}" ]]; then
     chmod 600 "${_az_wrapper}"
     cat > "${_az_wrapper}" << WRAPPER
 #!/usr/bin/env bash
-# In PAT mode, only Azure DevOps extension command groups are permitted.
+# In PAT mode, Azure DevOps extension command groups are permitted.
+# Additionally allow az login/account/acr for ACR authentication flows.
 case "\${1:-}" in
-    devops|repos|boards|pipelines|artifacts)
+    devops|repos|boards|pipelines|artifacts|login|account|acr|logout)
         if [[ -n "\${AZURE_DEVOPS_ORG:-}" ]]; then
             _has_org_flag=0
             for _arg in "\$@"; do
@@ -210,9 +211,9 @@ case "\${1:-}" in
         exec "${_real_az}" "\$@"
         ;;
 esac
-echo "⛔  az CLI is disabled in PAT mode." >&2
+echo "⛔  az CLI is restricted in PAT mode." >&2
 echo "   Azure DevOps access uses the AZURE_DEVOPS_EXT_PAT environment variable." >&2
-echo "   Only Azure DevOps command groups are permitted: devops, repos, boards, pipelines, artifacts." >&2
+echo "   Permitted command groups: devops, repos, boards, pipelines, artifacts, login, account, acr, logout." >&2
 echo "   To re-enable full az CLI, remove the PAT from your host keychain:" >&2
 echo "     secret-tool clear service azure-devops-pat account default" >&2
 exit 1
