@@ -28,9 +28,6 @@ git clone https://github.com/knibel/java-agent-dev-sandbox.git
 cd java-agent-dev-sandbox
 
 # 2. Run the install script (builds the image + registers a shell alias)
-chmod +x install.sh && ./install.sh
-
-# Optional: persist your Azure DevOps org for future sandbox runs
 ./install.sh --devops-org contoso
 
 # 3. Reload your shell config
