@@ -43,6 +43,35 @@ the user explicitly requests a different branch.
 
 ---
 
+## Get exact logs for a specific build step/task
+
+Avoid `az pipelines build logs show` as the primary path because it can return
+empty output with exit code 0. Use build timeline + build logs APIs via
+`az devops invoke` instead.
+
+The skill includes a helper:
+
+```bash
+~/.copilot/skills/azure-devops/ado-build-step-log.sh \
+    --project <PROJECT> \
+    --build-id <BUILD_ID> \
+    --step-name "<STEP_NAME>" \
+    --failed-only \
+    --org "${ADO_ORG_URL}"
+```
+
+Selector options (choose exactly one):
+- `--step-name "<STEP_NAME>"` (timeline record name)
+- `--record-id <RECORD_GUID>` (timeline record GUID)
+- `--task-id <TASK_GUID>` (task GUID from timeline metadata)
+
+What it does:
+- Queries timeline (`build/builds/{buildId}/timeline`) to map selector → `log.id`
+- Fetches the exact log (`build/builds/{buildId}/logs/{logId}`)
+- Fails loudly when timeline/log responses are empty or no record matches
+
+---
+
 ## List repositories
 
 ```bash
