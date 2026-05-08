@@ -9,8 +9,10 @@
 .PHONY: all help lint test
 
 SHELL_SCRIPTS := entrypoint.sh install-sdkman-candidates.sh install.sh jdtls.sh start-sandbox.sh \
-                 lib/common.sh lib/shell-config.sh lib/mcp-mounts.sh lib/update.sh
-TEST_FILES    := tests/common.bats tests/shell-config.bats tests/mcp-mounts.bats tests/update.bats
+                 lib/common.sh lib/shell-config.sh lib/mcp-mounts.sh lib/update.sh \
+                 skills/azure-devops/ado-build-step-log.sh
+TEST_FILES    := tests/common.bats tests/shell-config.bats tests/mcp-mounts.bats tests/update.bats \
+                 tests/azure-devops-skill.bats
 
 all: lint test
 
