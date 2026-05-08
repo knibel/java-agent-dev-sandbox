@@ -226,6 +226,67 @@ az devops invoke \
 
 ---
 
+## Watch PR reviews with the polling daemon
+
+The skill includes three helper scripts that store state under `~/.copilot/`:
+
+- `~/.copilot/skills/azure-devops/pr-watch-daemon.sh`
+- `~/.copilot/skills/azure-devops/pr-watch-register.sh`
+- `~/.copilot/skills/azure-devops/pr-watch-read.sh`
+
+Start the daemon manually:
+
+```bash
+nohup ~/.copilot/skills/azure-devops/pr-watch-daemon.sh >/dev/null 2>&1 &
+```
+
+Or auto-start it when the sandbox launches:
+
+```bash
+PR_WATCH_AUTOSTART=1
+PR_WATCH_INTERVAL=60   # optional; defaults to 60 seconds
+```
+
+Stop the daemon:
+
+```bash
+kill "$(cat ~/.copilot/pr-watch-daemon.pid)"
+```
+
+Register a PR after creating it so only future comments generate notifications:
+
+```bash
+~/.copilot/skills/azure-devops/pr-watch-register.sh \
+    --register \
+    --project <PROJECT> \
+    --repo <REPO> \
+    --pr-id <PR_ID> \
+    --org "${ADO_ORG_URL}"
+```
+
+List or unregister watched PRs:
+
+```bash
+~/.copilot/skills/azure-devops/pr-watch-register.sh --list
+~/.copilot/skills/azure-devops/pr-watch-register.sh --unregister --pr-id <PR_ID>
+```
+
+Check for unread notifications at the start of a response turn:
+
+```bash
+if ~/.copilot/skills/azure-devops/pr-watch-read.sh; then
+    echo "New PR review comments were received"
+fi
+```
+
+Suggested workflow:
+1. Start the daemon once (manually or with `PR_WATCH_AUTOSTART=1`).
+2. Create a PR and immediately register it with `pr-watch-register.sh`.
+3. Call `pr-watch-read.sh` at the start of each turn.
+4. When notifications exist, inspect the thread, reply, or push a fix, then keep the PR registered.
+
+---
+
 ## Post an inline suggestion (code comment) on a PR
 
 Create a uniquely-named temp file with the thread payload, post it, then clean up:
