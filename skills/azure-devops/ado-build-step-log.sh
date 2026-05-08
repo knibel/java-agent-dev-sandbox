@@ -132,8 +132,8 @@ selected_record="$(echo "${candidate_json}" | jq -c '.[0]')"
 log_id="$(echo "${selected_record}" | jq -r '.log.id')"
 [[ -n "${log_id}" && "${log_id}" != "null" ]] || die "Matched record has no log id"
 
-outfile="$(mktemp -t ado-build-log-XXXXXX)"
-rm -f "${outfile}"
+outdir="$(mktemp -d -t ado-build-log-XXXXXX)"
+outfile="${outdir}/log.txt"
 az devops invoke \
     --area build \
     --resource logs \
@@ -145,12 +145,13 @@ az devops invoke \
     --out-file "${outfile}" >/dev/null
 
 if [[ ! -f "${outfile}" ]]; then
+    rm -rf "${outdir}"
     die "Log API did not create output file for log id ${log_id}"
 fi
 if [[ ! -s "${outfile}" ]]; then
-    rm -f "${outfile}"
+    rm -rf "${outdir}"
     die "Log API returned empty output for log id ${log_id}"
 fi
 
 cat "${outfile}"
-rm -f "${outfile}"
+rm -rf "${outdir}"
