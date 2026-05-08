@@ -91,6 +91,23 @@ if [[ -n "${ADO_PAT_MODE:-}" ]]; then
         cp -r "${SKILL_SRC}" "${SKILL_DST}"
         echo "✓  Azure DevOps native skill installed"
     fi
+
+    if [[ "${PR_WATCH_AUTOSTART:-0}" == "1" ]]; then
+        PR_WATCH_DAEMON="/root/.copilot/skills/azure-devops/pr-watch-daemon.sh"
+        PR_WATCH_PIDFILE="/root/.copilot/pr-watch-daemon.pid"
+        if [[ -x "${PR_WATCH_DAEMON}" ]]; then
+            _existing_watch_pid="$(cat "${PR_WATCH_PIDFILE}" 2>/dev/null || true)"
+            if [[ -n "${_existing_watch_pid}" ]] && kill -0 "${_existing_watch_pid}" 2>/dev/null; then
+                echo "✓  Azure DevOps PR watch daemon already running (${_existing_watch_pid})"
+            else
+                rm -f "${PR_WATCH_PIDFILE}"
+                nohup "${PR_WATCH_DAEMON}" >/dev/null 2>&1 &
+                echo "✓  Azure DevOps PR watch daemon started"
+            fi
+        else
+            echo "⚠  Azure DevOps PR watch daemon not found at ${PR_WATCH_DAEMON}"
+        fi
+    fi
 fi
 
 # ── Java LSP native skill (fallback when MCP is disabled) ────────────────────

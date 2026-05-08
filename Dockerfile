@@ -166,7 +166,7 @@ RUN echo '\n# SDKMAN\nsource /root/.sdkman/bin/sdkman-init.sh' >> /root/.bashrc
 WORKDIR /workspace
 
 # ── agent skills ─────────────────────────────────────────────────────────────
-# Copy built-in skill definitions that entrypoint.sh installs into
+# Copy built-in skill definitions and helper scripts that entrypoint.sh installs into
 # /root/.copilot/skills/ at container start.
 COPY skills/ /usr/local/share/copilot-skills/
 
