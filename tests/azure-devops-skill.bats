@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# tests/azure-devops-skill.bats – regression tests for Azure DevOps skill helper
+# tests/azure-devops-skill.bats - regression tests for Azure DevOps skill helper
 
 setup() {
     REPO_ROOT="${BATS_TEST_DIRNAME}/.."

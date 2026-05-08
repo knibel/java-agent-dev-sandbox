@@ -116,6 +116,8 @@ candidate_json="$(echo "${timeline_json}" | jq -c \
       (.records // [])[]
       | select(${selector_filter})
       | select(.log.id != null)
+      # failed-only mode intentionally targets explicit failed steps only.
+      # Comparison is case-insensitive in case API values vary by casing.
       | select((\$failed_only == 0) or ((.result // \"\" | ascii_downcase) == \"failed\"))
     ]
     ")"
