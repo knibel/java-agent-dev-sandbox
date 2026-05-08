@@ -43,7 +43,11 @@ if [[ "${1:-}" == "devops" && "${2:-}" == "invoke" ]]; then
     done
 
     if [[ "${resource}" == "timelines" ]]; then
-        printf '%s' "${AZ_FAKE_TIMELINE_JSON:-{"records":[]}}"
+        if [[ -n "${AZ_FAKE_TIMELINE_JSON:-}" ]]; then
+            printf '%s' "${AZ_FAKE_TIMELINE_JSON}"
+        else
+            printf '%s' '{"records":[]}'
+        fi
         exit 0
     fi
 

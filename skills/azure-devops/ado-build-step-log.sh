@@ -115,7 +115,7 @@ candidate_json="$(echo "${timeline_json}" | jq -c \
     [
       (.records // [])[]
       | select(${selector_filter})
-      | select((.log.id // empty) != empty)
+      | select(.log.id != null)
       | select((\$failed_only == 0) or ((.result // \"\" | ascii_downcase) == \"failed\"))
     ]
     ")"
