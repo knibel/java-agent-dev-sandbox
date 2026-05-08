@@ -76,6 +76,22 @@ RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash \
 RUN az extension add --name azure-devops --only-show-errors --yes \
     || echo "Note: azure-devops extension could not be installed; Azure DevOps commands may prompt at runtime."
 
+# ── Docker CLI (client only) ──────────────────────────────────────────────────
+# Provides the `docker` command inside the sandbox so agents can interact with
+# the host Docker daemon via the bind-mounted /var/run/docker.sock.
+# Only the CLI package is installed; the daemon is not needed (and is not
+# started) because the sandbox connects to the host daemon via the socket.
+# Best-effort: skipped when Docker's package repository is unreachable.
+RUN ( curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+        | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+        https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+        > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends docker-ce-cli \
+    || echo "Note: Docker CLI could not be installed; docker commands will not be available inside the sandbox." ) \
+    ; rm -rf /var/lib/apt/lists/*
+
 # ── SDKMAN + Java toolchains ──────────────────────────────────────────────────
 # Install SDKMAN non-interactively (best-effort).
 # If get.sdkman.io is unreachable the install-sdkman-candidates.sh script
