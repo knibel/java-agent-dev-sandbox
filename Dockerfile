@@ -1,4 +1,21 @@
 # syntax=docker/dockerfile:1
+
+# Override GO_VERSION to pin the Go toolchain used to compile mcp-language-server
+ARG GO_VERSION=1.24.3
+
+# ── mcp-language-server builder stage ──────────────────────────────────────────
+# Build mcp-language-server in a dedicated Go image so the Go toolchain download
+# never appears in the final runtime image layer history.
+FROM golang:${GO_VERSION} AS mcp-language-server-builder
+RUN set -eux; \
+    mkdir -p /out; \
+    if GOBIN=/out go install github.com/isaacphi/mcp-language-server@latest; then \
+        echo "Built mcp-language-server"; \
+    else \
+        echo "Note: Go / mcp-language-server could not be installed; Java LSP navigation will not be available."; \
+        touch /out/.mcp-language-server-unavailable; \
+    fi
+
 FROM ubuntu:24.04
 
 # ── build arguments ─────────────────────────────────────────────────────────
@@ -6,9 +23,6 @@ FROM ubuntu:24.04
 ARG JAVA_VERSION=25.0.1-tem
 # Override GH_VERSION to pin the GitHub CLI release used in the image
 ARG GH_VERSION=2.89.0
-# Override GO_VERSION to pin the Go toolchain used to compile mcp-language-server
-ARG GO_VERSION=1.24.3
-
 # ── environment ──────────────────────────────────────────────────────────────
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC \
@@ -127,19 +141,16 @@ RUN chmod +x /usr/local/bin/jdtls
 # (definition, references, diagnostics, hover, rename, …) so that the Copilot
 # CLI can call them directly.
 #
-# Strategy: download Go, compile the binary, then remove Go to keep the image
-# lean (all in one RUN layer so the intermediate files don't bloat the image).
-# Best-effort: the whole step is skipped when golang.org / GitHub is unreachable.
-RUN ARCH=$(dpkg --print-architecture) \
-    && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" \
-        -o /tmp/go.tar.gz \
-    && tar -C /usr/local -xzf /tmp/go.tar.gz \
-    && rm /tmp/go.tar.gz \
-    && GOPATH=/root/go /usr/local/go/bin/go install \
-        github.com/isaacphi/mcp-language-server@latest \
-    && cp /root/go/bin/mcp-language-server /usr/local/bin/mcp-language-server \
-    && rm -rf /usr/local/go /root/go /root/.cache/go-build \
-    || echo "Note: Go / mcp-language-server could not be installed; Java LSP navigation will not be available."
+# Strategy: compile in a separate builder stage and copy only the resulting
+# binary into the final runtime image.
+# Best-effort: emit a note when the builder stage could not produce the binary.
+COPY --from=mcp-language-server-builder /out /tmp/mcp-language-server-build
+RUN if [ -x /tmp/mcp-language-server-build/mcp-language-server ]; then \
+        cp /tmp/mcp-language-server-build/mcp-language-server /usr/local/bin/mcp-language-server; \
+    else \
+        echo "Note: Go / mcp-language-server could not be installed; Java LSP navigation will not be available."; \
+    fi \
+    && rm -rf /tmp/mcp-language-server-build
 
 # Make SDKMAN candidate binaries available without sourcing init in every RUN
 ENV PATH="\
