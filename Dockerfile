@@ -12,7 +12,6 @@ RUN set -eux; \
     if GOBIN=/out go install github.com/isaacphi/mcp-language-server@latest; then \
         echo "Built mcp-language-server"; \
     else \
-        echo "Note: mcp-language-server build failed in builder stage; Java LSP navigation will not be available."; \
         touch /out/.mcp-language-server-unavailable; \
     fi
 
