@@ -193,9 +193,12 @@ if [[ -n "${ADO_PAT_MODE:-}" ]]; then
     cat > "${_az_wrapper}" << WRAPPER
 #!/usr/bin/env bash
 # In PAT mode, Azure DevOps extension command groups are permitted.
-# Additionally allow az login/account/acr for ACR authentication flows.
+# Additionally allow az login/account/acr/logout for ACR authentication flows.
+# --org is auto-appended only for Azure DevOps command groups; it is NOT
+# injected for login/account/acr/logout because those commands do not accept
+# --org and the injection would break them (e.g. az acr login).
 case "\${1:-}" in
-    devops|repos|boards|pipelines|artifacts|login|account|acr|logout)
+    devops|repos|boards|pipelines|artifacts)
         if [[ -n "\${AZURE_DEVOPS_ORG:-}" ]]; then
             _has_org_flag=0
             for _arg in "\$@"; do
@@ -208,6 +211,9 @@ case "\${1:-}" in
                 exec "${_real_az}" "\$@" --org "https://dev.azure.com/\${AZURE_DEVOPS_ORG}"
             fi
         fi
+        exec "${_real_az}" "\$@"
+        ;;
+    login|account|acr|logout)
         exec "${_real_az}" "\$@"
         ;;
 esac

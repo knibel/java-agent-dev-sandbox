@@ -128,8 +128,9 @@ parts as read-only volumes before handing control to the container:
 
 ---
 
-## Testcontainers / Docker daemon access
+## Docker CLI and Testcontainers / Docker daemon access
 
+The sandbox image includes the Docker CLI (`docker-ce-cli`).
 `start-sandbox.sh` automatically bind-mounts the host Docker socket when
 `/var/run/docker.sock` exists, then sets:
 
@@ -137,8 +138,9 @@ parts as read-only volumes before handing control to the container:
 - `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`
 - `--add-host host.docker.internal:host-gateway` on `docker run`
 
-This lets tests using Testcontainers run from inside the sandbox while
-using the host Docker daemon.
+This means `docker` commands (e.g. `docker version`, `docker ps`,
+`az acr login`) work directly inside the sandbox and connect to the
+host Docker daemon. Testcontainers-based tests also use this path.
 
 ---
 
@@ -464,8 +466,13 @@ export AZURE_DEVOPS_ORG="contoso"
 ./start-sandbox.sh
 ```
 
-When `AZURE_DEVOPS_ORG` is set, the sandbox also auto-appends
-`--org https://dev.azure.com/<ORG>` for Azure DevOps command groups if omitted.
+When `AZURE_DEVOPS_ORG` is set, the sandbox pre-configures the default
+organization via `az devops configure` so Azure DevOps commands work
+without `--org`. The PAT-mode `az` wrapper also auto-appends
+`--org https://dev.azure.com/<ORG>` for Azure DevOps command groups
+(`devops`, `repos`, `boards`, `pipelines`, `artifacts`) if the flag is
+absent. Commands such as `az acr login`, `az login`, and `az account`
+are passed through unchanged — they do not accept `--org`.
 The built-in Azure DevOps skill treats `main` as the default branch unless a
 different branch is explicitly requested.
 
