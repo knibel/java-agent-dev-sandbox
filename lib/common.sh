@@ -15,7 +15,28 @@ ok()   { echo "✅ $*"; }
 warn() { echo "⚠  $*" >&2; }
 
 # ── dependency check ──────────────────────────────────────────────────────────
+# Adds /snap/bin to PATH when a command is installed via Snap and the current
+# shell PATH does not include that directory. This mutates/export PATH for the
+# current shell so later command lookups can resolve the binary too.
+ensure_cmd_on_path() {
+    local cmd="$1"
+    local snap_bin_dir="${SNAP_BIN_DIR:-/snap/bin}"
+    if command -v "${cmd}" &>/dev/null; then
+        return 0
+    fi
+
+    if [[ -x "${snap_bin_dir}/${cmd}" ]]; then
+        if [[ ":${PATH}:" != *":${snap_bin_dir}:"* ]]; then
+            PATH="${snap_bin_dir}:${PATH}"
+        fi
+        export PATH
+        return 0
+    fi
+
+    return 1
+}
+
 # Exits with a warning message when the named command is not on PATH.
 require_cmd() {
-    command -v "$1" &>/dev/null || { warn "Required command not found: $1"; exit 1; }
+    ensure_cmd_on_path "$1" || { warn "Required command not found: $1"; exit 1; }
 }

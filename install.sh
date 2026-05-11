@@ -81,6 +81,7 @@ resolve_saved_alias_name() {
 
 build_image() {
     if [[ "${SKIP_BUILD}" == false ]]; then
+        require_cmd docker
         log "Building Docker image 'java-copilot-sandbox' …"
 
         # Resolve the latest gh CLI release so the image is never pinned to a
