@@ -56,7 +56,7 @@ EOF
 
     run bash -c '
         source "'"${BATS_TEST_DIRNAME}"'/../lib/common.sh"
-        PATH="/tmp/does-not-exist"
+        PATH="/nonexistent-path-for-test"
         SNAP_BIN_DIR="'"${tmp_snap}"'/snap-bin"
         require_cmd docker
         command -v docker
