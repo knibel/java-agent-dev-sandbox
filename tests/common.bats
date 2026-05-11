@@ -44,6 +44,27 @@ setup() {
     [ "$status" -ne 0 ]
 }
 
+@test "require_cmd: resolves command from snap bin path when missing on PATH" {
+    local tmp_snap
+    tmp_snap="$(mktemp -d)"
+    mkdir -p "${tmp_snap}/snap-bin"
+    cat > "${tmp_snap}/snap-bin/docker" <<'EOF'
+#!/usr/bin/env bash
+echo docker
+EOF
+    chmod +x "${tmp_snap}/snap-bin/docker"
+
+    run bash -c '
+        source "'"${BATS_TEST_DIRNAME}"'/../lib/common.sh"
+        PATH="/tmp/does-not-exist"
+        SNAP_BIN_DIR="'"${tmp_snap}"'/snap-bin"
+        require_cmd docker
+        command -v docker
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"${tmp_snap}/snap-bin/docker" ]]
+}
+
 # ── idempotent sourcing (guard variable) ──────────────────────────────────────
 
 @test "lib/common.sh can be sourced multiple times without error" {
