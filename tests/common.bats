@@ -45,24 +45,23 @@ setup() {
 }
 
 @test "require_cmd: resolves command from snap bin path when missing on PATH" {
-    local tmp_snap
-    tmp_snap="$(mktemp -d)"
-    mkdir -p "${tmp_snap}/snap-bin"
-    cat > "${tmp_snap}/snap-bin/docker" <<'EOF'
+    run bash -c '
+        source "'"${BATS_TEST_DIRNAME}"'/../lib/common.sh"
+        tmp_snap="$(mktemp -d)"
+        trap "/bin/rm -rf \"${tmp_snap}\"" EXIT
+        mkdir -p "${tmp_snap}/snap-bin"
+        cat > "${tmp_snap}/snap-bin/docker" <<'"'"'EOF'"'"'
 #!/usr/bin/env bash
 echo docker
 EOF
-    chmod +x "${tmp_snap}/snap-bin/docker"
-
-    run bash -c '
-        source "'"${BATS_TEST_DIRNAME}"'/../lib/common.sh"
+        chmod +x "${tmp_snap}/snap-bin/docker"
         PATH="/nonexistent-path-for-test"
-        SNAP_BIN_DIR="'"${tmp_snap}"'/snap-bin"
+        SNAP_BIN_DIR="${tmp_snap}/snap-bin"
         require_cmd docker
         command -v docker
     '
     [ "$status" -eq 0 ]
-    [[ "$output" == *"${tmp_snap}/snap-bin/docker" ]]
+    [[ "$output" == */snap-bin/docker ]]
 }
 
 # ── idempotent sourcing (guard variable) ──────────────────────────────────────

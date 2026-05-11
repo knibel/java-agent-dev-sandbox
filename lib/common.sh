@@ -25,7 +25,9 @@ ensure_cmd_on_path() {
     fi
 
     if [[ -x "${snap_bin_dir}/${cmd}" ]]; then
-        PATH="${snap_bin_dir}:${PATH}"
+        if [[ ":${PATH}:" != *":${snap_bin_dir}:"* ]]; then
+            PATH="${snap_bin_dir}:${PATH}"
+        fi
         export PATH
         return 0
     fi
