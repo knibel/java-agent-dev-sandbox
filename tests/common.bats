@@ -48,7 +48,7 @@ setup() {
     run bash -c '
         source "'"${BATS_TEST_DIRNAME}"'/../lib/common.sh"
         tmp_snap="$(mktemp -d)"
-        trap "/bin/rm -rf \"${tmp_snap}\"" EXIT
+        trap "PATH=/usr/bin:/bin; rm -rf \"${tmp_snap}\"" EXIT
         mkdir -p "${tmp_snap}/snap-bin"
         cat > "${tmp_snap}/snap-bin/docker" <<'"'"'EOF'"'"'
 #!/usr/bin/env bash
