@@ -13,7 +13,7 @@ servers all wired up automatically.
 | Requirement | Notes |
 |---|---|
 | Docker (≥ 24) | Must be running |
-| `gh` CLI (≥ 2.x) | `brew install gh` / <https://cli.github.com> |
+| `gh` CLI (≥ 2.x) | Auto-checked by `install.sh`; auto-installed/upgraded when supported package managers are available |
 | Authenticated `gh` session | `gh auth login` |
 | `jq` (optional) | Used to auto-mount MCP server paths; `brew install jq` |
 | `secret-tool` (optional) | Used to read GitHub or Azure DevOps PATs from the Linux keychain; `sudo apt install libsecret-tools` (Debian/Ubuntu) or `sudo dnf install libsecret` (Fedora/RHEL) |
@@ -36,6 +36,7 @@ source ~/.bashrc   # or ~/.zshrc
 
 The install script:
 - Builds the Docker image (takes a few minutes the first time to install SDKMAN, Java, Maven, Gradle, Spring Boot CLI and the Azure CLI).
+- Ensures host `gh` CLI is available and at a supported version (auto-installs/upgrades when possible).
 - Adds a `copilot-sandbox` alias to `~/.bashrc` / `~/.zshrc`.
 - Registers **tab completion** for the alias in both Bash and Zsh.
 

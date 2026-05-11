@@ -75,3 +75,31 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "▶  still works" ]
 }
+
+# ── version helpers ────────────────────────────────────────────────────────────
+
+@test "normalize_semver strips v-prefix and suffix" {
+    run normalize_semver "v2.89.0-rc1"
+    [ "$status" -eq 0 ]
+    [ "$output" = "2.89.0" ]
+}
+
+@test "normalize_semver fails on invalid version string" {
+    run normalize_semver "gh-version"
+    [ "$status" -ne 0 ]
+}
+
+@test "version_gte returns success for equal versions" {
+    run version_gte "2.0.0" "2.0.0"
+    [ "$status" -eq 0 ]
+}
+
+@test "version_gte returns success when left is greater" {
+    run version_gte "2.10.0" "2.9.9"
+    [ "$status" -eq 0 ]
+}
+
+@test "version_gte returns non-zero when left is lower" {
+    run version_gte "1.99.0" "2.0.0"
+    [ "$status" -ne 0 ]
+}
