@@ -59,6 +59,106 @@ ALIAS_NAME="copilot-sandbox"
 ALIAS_EXPLICIT=false
 DEVOPS_ORG_INPUT=""
 declare -a RC_FILES=()
+GH_MIN_VERSION="2.0.0"
+
+detect_gh_version() {
+    local raw_version
+    if ! raw_version="$(gh --version 2>/dev/null | head -n1 | awk '{print $3}')"; then
+        return 1
+    fi
+    normalize_semver "${raw_version}"
+}
+
+install_or_upgrade_gh_cli() {
+    local os_name
+    os_name="$(uname -s)"
+
+    case "${os_name}" in
+        Darwin)
+            if command -v brew &>/dev/null; then
+                log "Installing/upgrading gh via Homebrew …"
+                brew install gh || brew upgrade gh
+                return 0
+            fi
+            ;;
+        Linux)
+            if command -v apt-get &>/dev/null; then
+                log "Installing/upgrading gh via apt …"
+                sudo apt-get update && sudo apt-get install -y gh
+                return $?
+            fi
+            if command -v dnf &>/dev/null; then
+                log "Installing/upgrading gh via dnf …"
+                sudo dnf install -y gh
+                return $?
+            fi
+            if command -v yum &>/dev/null; then
+                log "Installing/upgrading gh via yum …"
+                sudo yum install -y gh
+                return $?
+            fi
+            if command -v pacman &>/dev/null; then
+                log "Installing/upgrading gh via pacman …"
+                sudo pacman -Sy --noconfirm gh
+                return $?
+            fi
+            if command -v zypper &>/dev/null; then
+                log "Installing/upgrading gh via zypper …"
+                sudo zypper --non-interactive install gh
+                return $?
+            fi
+            if command -v snap &>/dev/null; then
+                log "Installing/upgrading gh via snap …"
+                sudo snap install gh --classic || sudo snap refresh gh
+                return $?
+            fi
+            if command -v brew &>/dev/null; then
+                log "Installing/upgrading gh via Homebrew …"
+                brew install gh || brew upgrade gh
+                return 0
+            fi
+            ;;
+    esac
+
+    return 1
+}
+
+ensure_gh_cli() {
+    local gh_version=""
+
+    if ensure_cmd_on_path gh; then
+        gh_version="$(detect_gh_version || true)"
+        if [[ -n "${gh_version}" ]] && version_gte "${gh_version}" "${GH_MIN_VERSION}"; then
+            info "Detected gh ${gh_version}."
+            return 0
+        fi
+        warn "Detected gh ${gh_version:-unknown}, but ${GH_MIN_VERSION}+ is required."
+    else
+        warn "gh CLI is not installed."
+    fi
+
+    log "Attempting automatic gh installation/upgrade …"
+    if ! install_or_upgrade_gh_cli; then
+        warn "Could not automatically install/upgrade gh."
+        warn "Install GitHub CLI ${GH_MIN_VERSION}+ and re-run install.sh: https://cli.github.com"
+        exit 1
+    fi
+
+    if ! ensure_cmd_on_path gh; then
+        warn "gh was installed/upgraded but is not on PATH."
+        warn "Open a new shell and re-run install.sh."
+        exit 1
+    fi
+
+    gh_version="$(detect_gh_version || true)"
+    if [[ -z "${gh_version}" ]] || ! version_gte "${gh_version}" "${GH_MIN_VERSION}"; then
+        warn "gh version is still unsupported (${gh_version:-unknown})."
+        warn "Install GitHub CLI ${GH_MIN_VERSION}+ and re-run install.sh: https://cli.github.com"
+        exit 1
+    fi
+
+    ok "gh ${gh_version} is ready."
+}
 
 collect_rc_files() {
     RC_FILES=()
@@ -316,7 +416,9 @@ elif [[ -n "${AZURE_DEVOPS_ORG:-}" ]]; then
 fi
 
 if [[ "${UPDATE_MODE}" == true ]]; then
+    ensure_gh_cli
     perform_release_update
 else
+    ensure_gh_cli
     run_install_flow
 fi
