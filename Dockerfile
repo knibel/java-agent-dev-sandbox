@@ -44,6 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     jq \
     file \
+    libsecret-tools \
     # shells / process tools
     bash \
     procps \
