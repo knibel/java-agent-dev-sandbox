@@ -128,9 +128,10 @@ parts as read-only volumes before handing control to the container:
 
 ---
 
-## Docker CLI and Testcontainers / Docker daemon access
+## Docker CLI, secret-tool, and Testcontainers / Docker daemon access
 
 The sandbox image includes the Docker CLI (`docker-ce-cli`).
+It also includes `secret-tool` (`libsecret-tools`) inside the container.
 `start-sandbox.sh` automatically bind-mounts the host Docker socket when
 `/var/run/docker.sock` exists, then sets:
 
