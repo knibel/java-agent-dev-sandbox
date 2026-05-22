@@ -385,6 +385,57 @@ session with the `/lsp` slash commands:
 
 ---
 
+## RTK token optimizer
+
+[RTK (Rust Token Killer)](https://github.com/rtk-ai/rtk) is a single binary
+pre-installed in the sandbox image that transparently filters verbose shell
+output before it reaches Copilot's LLM context, reducing token usage by
+60–90% per session.
+
+**It activates automatically — no user action is needed.**  
+At container start `entrypoint.sh` runs `rtk init -g --copilot --auto-patch`,
+which installs a `PreToolUse` hook that rewrites supported bash commands (e.g.
+`git status` → `rtk git status`) before Copilot sees the output.
+
+### Verify and monitor savings
+
+```
+rtk gain              # cumulative token savings across all sessions
+rtk gain --graph      # ASCII graph of daily savings (last 30 days)
+rtk gain --history    # recent command history with per-command savings
+```
+
+### Use RTK commands manually
+
+You can also call RTK directly for any verbose command:
+
+```
+rtk git status        # compact git status
+rtk git diff          # condensed diff
+rtk git log -n 10     # one-line commit log
+rtk mvn test          # Maven test output (failures only)
+rtk docker ps         # compact container list
+rtk ls .              # token-optimised directory tree
+```
+
+### Opt out
+
+To disable the automatic hook for a session, set `RTK_HOOK_DISABLED=1`
+before starting the sandbox:
+
+```bash
+RTK_HOOK_DISABLED=1 sandbox
+```
+
+To remove the hook permanently:
+
+```bash
+# Inside the container
+rtk init -g --uninstall
+```
+
+---
+
 ## GitHub authentication
 
 The sandbox supports two mutually exclusive authentication modes for GitHub /

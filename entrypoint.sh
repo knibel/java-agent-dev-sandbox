@@ -27,6 +27,17 @@ if [[ -d /root/.copilot-host ]]; then
         -exec cp -r {} /root/.copilot/ \;
 fi
 
+# ── RTK (token optimizer) ─────────────────────────────────────────────────────
+# Initialize the RTK hook for GitHub Copilot CLI so shell commands
+# (git, docker, mvn test, …) are automatically filtered before they
+# reach Copilot's LLM context, reducing token usage by 60-90%.
+# --auto-patch: non-interactive; idempotent on repeated runs.
+if command -v rtk &>/dev/null; then
+    RTK_TELEMETRY_DISABLED=1 rtk init -g --copilot --auto-patch 2>/dev/null \
+        && echo "✓  RTK token optimizer initialized (--copilot hook)" \
+        || true
+fi
+
 # ── Java LSP MCP server ───────────────────────────────────────────────────────
 # Automatically register the Eclipse JDT Language Server as an MCP tool-server
 # so the Copilot CLI can navigate Java code (go-to-definition, references,
