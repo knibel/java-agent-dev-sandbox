@@ -28,7 +28,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     SDKMAN_DIR=/root/.sdkman \
     JAVA_HOME=/root/.sdkman/candidates/java/current \
     LANG=en_US.UTF-8 \
-    LC_ALL=en_US.UTF-8
+    LC_ALL=en_US.UTF-8 \
+    RTK_TELEMETRY_DISABLED=1
 
 # ── base packages ────────────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -105,6 +106,30 @@ RUN ( curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
     && apt-get install -y --no-install-recommends docker-ce-cli \
     || echo "Note: Docker CLI could not be installed; docker commands will not be available inside the sandbox." ) \
     ; rm -rf /var/lib/apt/lists/*
+
+# ── RTK (Rust Token Killer – token optimizer) ────────────────────────────────
+# RTK transparently filters verbose shell output (git, docker, mvn test, …)
+# before it reaches the Copilot LLM, reducing token usage by 60-90%.
+# Downloads the correct pre-built static binary from GitHub Releases.
+# Best-effort: silently skipped when GitHub releases are unreachable.
+RUN ARCH=$(dpkg --print-architecture) \
+    && case "${ARCH}" in \
+        # musl (fully static) is used for x86_64; the arm64 release is glibc-linked.
+        amd64)   RTK_ARCH="x86_64-unknown-linux-musl" ;; \
+        arm64)   RTK_ARCH="aarch64-unknown-linux-gnu" ;; \
+        *)       echo "Note: RTK has no pre-built binary for ${ARCH}; skipping." ; exit 0 ;; \
+    esac \
+    && RTK_VERSION="$(curl -fsSL --connect-timeout 15 \
+        https://api.github.com/repos/rtk-ai/rtk/releases/latest \
+        | jq -r '.tag_name' | sed 's/^v//')" \
+    && [ -n "${RTK_VERSION}" ] \
+    && curl -fsSL --connect-timeout 30 --max-time 120 \
+        "https://github.com/rtk-ai/rtk/releases/download/v${RTK_VERSION}/rtk-${RTK_ARCH}.tar.gz" \
+        -o /tmp/rtk.tar.gz \
+    && tar -xzf /tmp/rtk.tar.gz -C /tmp \
+    && install -m 755 /tmp/rtk /usr/local/bin/rtk \
+    && rm -f /tmp/rtk.tar.gz /tmp/rtk \
+    || echo "Note: RTK could not be downloaded; token optimization will not be available."
 
 # ── SDKMAN + Java toolchains ──────────────────────────────────────────────────
 # Install SDKMAN non-interactively (best-effort).
