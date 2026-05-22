@@ -415,7 +415,7 @@ rtk git diff          # condensed diff
 rtk git log -n 10     # one-line commit log
 rtk mvn test          # Maven test output (failures only)
 rtk docker ps         # compact container list
-rtk ls .              # token-optimised directory tree
+rtk ls .              # token-optimized directory tree
 ```
 
 ### Opt out

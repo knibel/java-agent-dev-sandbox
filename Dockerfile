@@ -114,13 +114,14 @@ RUN ( curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
 # Best-effort: silently skipped when GitHub releases are unreachable.
 RUN ARCH=$(dpkg --print-architecture) \
     && case "${ARCH}" in \
+        # musl (fully static) is used for x86_64; the arm64 release is glibc-linked.
         amd64)   RTK_ARCH="x86_64-unknown-linux-musl" ;; \
         arm64)   RTK_ARCH="aarch64-unknown-linux-gnu" ;; \
         *)       echo "Note: RTK has no pre-built binary for ${ARCH}; skipping." ; exit 0 ;; \
     esac \
     && RTK_VERSION="$(curl -fsSL --connect-timeout 15 \
         https://api.github.com/repos/rtk-ai/rtk/releases/latest \
-        | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/')" \
+        | jq -r '.tag_name' | sed 's/^v//')" \
     && [ -n "${RTK_VERSION}" ] \
     && curl -fsSL --connect-timeout 30 --max-time 120 \
         "https://github.com/rtk-ai/rtk/releases/download/v${RTK_VERSION}/rtk-${RTK_ARCH}.tar.gz" \

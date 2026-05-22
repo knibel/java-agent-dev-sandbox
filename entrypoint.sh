@@ -35,7 +35,7 @@ fi
 if command -v rtk &>/dev/null; then
     RTK_TELEMETRY_DISABLED=1 rtk init -g --copilot --auto-patch 2>/dev/null \
         && echo "✓  RTK token optimizer initialized (--copilot hook)" \
-        || true
+        || echo "⚠  RTK init encountered an error; token optimization may not be active."
 fi
 
 # ── Java LSP MCP server ───────────────────────────────────────────────────────
