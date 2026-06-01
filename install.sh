@@ -196,6 +196,14 @@ build_image() {
                     LATEST_GH_VERSION="$(printf '%s' "${GH_API_RESPONSE}" | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/' || true)"
                 fi
             fi
+            if [[ -z "${LATEST_GH_VERSION}" ]]; then
+                LATEST_GH_VERSION="$(
+                    curl -fsSLI "https://github.com/cli/cli/releases/latest" 2>/dev/null \
+                        | awk -F'/' '/^location:/ {print $NF}' \
+                        | sed 's/\r$//' \
+                        | sed 's/^v//'
+                )"
+            fi
         fi
 
         GH_BUILD_ARGS=()

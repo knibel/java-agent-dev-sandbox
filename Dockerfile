@@ -6,7 +6,7 @@ FROM ubuntu:24.04
 # Override JAVA_VERSION to any SDKMAN identifier, e.g. "21.0.5-tem" or "25-graalce"
 ARG JAVA_VERSION=25.0.1-tem
 # Override GH_VERSION to pin the GitHub CLI release used in the image
-ARG GH_VERSION=2.89.0
+ARG GH_VERSION=2.93.0
 # ── environment ──────────────────────────────────────────────────────────────
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC \
