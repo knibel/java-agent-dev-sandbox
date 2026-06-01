@@ -38,12 +38,13 @@ setup() {
 }
 
 @test "download_release_archive: falls back to gh release source archive download" {
-    local temp_root destination gh_log
+    local temp_root destination gh_log sandbox_repo
     temp_root="$(mktemp -d)"
     destination="${temp_root}/release.tar.gz"
     gh_log="${temp_root}/gh.log"
+    sandbox_repo="example/test-repo"
 
-    run env DESTINATION="${destination}" GH_LOG="${gh_log}" bash -c '
+    run env DESTINATION="${destination}" GH_LOG="${gh_log}" SANDBOX_RELEASE_REPO="${sandbox_repo}" bash -c '
         source "'"${BATS_TEST_DIRNAME}"'/../lib/update.sh"
         list_release_archive_assets() { return 0; }
         gh() {
@@ -57,7 +58,7 @@ setup() {
     [ "$output" = $'tarball\t' ]
     [ -f "${destination}" ]
     [ "$(cat "${destination}")" = "archive" ]
-    [ "$(cat "${gh_log}")" = "release download v0.0.4 --repo knibel/java-agent-dev-sandbox --archive tar.gz --output ${destination} --clobber" ]
+    [ "$(cat "${gh_log}")" = "release download v0.0.4 --repo ${sandbox_repo} --archive tar.gz --output ${destination} --clobber" ]
     rm -rf "${temp_root}"
 }
 
