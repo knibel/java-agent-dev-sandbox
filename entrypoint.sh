@@ -285,10 +285,19 @@ if [[ -n "${COPILOT_EXTRA_ARGS:-}" ]]; then
 fi
 
 # ── launch ───────────────────────────────────────────────────────────────────
-# If the caller passed arguments, those completely replace the defaults so
-# the user has full control.  Otherwise we launch with --allow-all.
-if [[ $# -gt 0 ]]; then
+# Keep --allow-all enabled by default, even when custom CLI args are passed.
+# When the caller explicitly provides an --allow-* flag, do not inject the
+# default allow flags and let the caller fully control permission behavior.
+USER_SUPPLIED_ALLOW_FLAG=0
+for arg in "$@"; do
+    if [[ "${arg}" == --allow-* ]]; then
+        USER_SUPPLIED_ALLOW_FLAG=1
+        break
+    fi
+done
+
+if [[ ${USER_SUPPLIED_ALLOW_FLAG} -eq 1 ]]; then
     exec gh copilot -- "${EXTRA_ARGS[@]}" "$@"
 else
-    exec gh copilot -- "${DEFAULT_COPILOT_ARGS[@]}" "${EXTRA_ARGS[@]}"
+    exec gh copilot -- "${DEFAULT_COPILOT_ARGS[@]}" "${EXTRA_ARGS[@]}" "$@"
 fi
