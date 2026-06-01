@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # jdtls.sh – thin launcher wrapper for Eclipse JDT Language Server.
 #
-# mcp-language-server starts this script as the LSP subprocess and
+# Copilot CLI starts this script as the native Java LSP server process and
 # communicates with it via stdin/stdout (the LSP default transport).
 #
 # Environment overrides

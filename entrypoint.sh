@@ -38,42 +38,6 @@ if command -v rtk &>/dev/null; then
         || echo "⚠  RTK init encountered an error; token optimization may not be active."
 fi
 
-# ── Java LSP MCP server ───────────────────────────────────────────────────────
-# Automatically register the Eclipse JDT Language Server as an MCP tool-server
-# so the Copilot CLI can navigate Java code (go-to-definition, references,
-# diagnostics, hover, rename, …) without any manual configuration.
-#
-# The entry is only injected when:
-#   • jq        – available (needed to read/write the JSON config)
-#   • mcp-language-server – installed in the image (LSP → MCP bridge)
-#   • jdtls     – installed in the image (Eclipse JDT Language Server wrapper)
-#   • the "java-language-server" key is NOT already present in the config
-#     (lets users override the entry in their own ~/.copilot/mcp-config.json)
-if command -v jq &>/dev/null \
-        && command -v mcp-language-server &>/dev/null \
-        && command -v jdtls &>/dev/null; then
-    MCP_CONFIG="/root/.copilot/mcp-config.json"
-    mkdir -p /root/.copilot
-    # Seed a minimal config when none was copied from the host.
-    if [[ ! -f "${MCP_CONFIG}" ]]; then
-        echo '{"mcpServers":{}}' > "${MCP_CONFIG}"
-    fi
-    # Add the Java LSP entry only when not already present.
-    if ! jq -e '.mcpServers["java-language-server"] // empty' \
-            "${MCP_CONFIG}" &>/dev/null; then
-        tmp_cfg="$(mktemp)"
-        if jq '.mcpServers["java-language-server"] = {
-            "command": "mcp-language-server",
-            "args": ["--workspace", "/workspace", "--lsp", "jdtls"]
-        }' "${MCP_CONFIG}" > "${tmp_cfg}" \
-                && mv "${tmp_cfg}" "${MCP_CONFIG}"; then
-            echo "✓  Java LSP registered (mcp-language-server → jdtls)"
-        else
-            rm -f "${tmp_cfg}"
-        fi
-    fi
-fi
-
 # ── Azure DevOps native skill ─────────────────────────────────────────────────
 # Install the built-in Azure DevOps skill so Copilot can use the az CLI
 # (az repos, az devops) directly for repository and PR workflows without an
@@ -121,13 +85,10 @@ if [[ -n "${ADO_PAT_MODE:-}" ]]; then
     fi
 fi
 
-# ── Java LSP native skill (fallback when MCP is disabled) ────────────────────
+# ── Java LSP native skill ─────────────────────────────────────────────────────
 # Copilot CLI has built-in LSP support via ~/.copilot/lsp-config.json.
-# When MCP is disabled (or not available), Copilot falls back to this native
-# language-server channel for go-to-definition, references, hover, rename, etc.
-#
-# We register jdtls directly (no mcp-language-server bridge needed) so that
-# the native skill works independently of the MCP configuration above.
+# We register jdtls directly for go-to-definition, references, hover, rename,
+# and other semantic navigation features.
 # The entry is only injected when:
 #   • jq    – available
 #   • jdtls – installed in the image
