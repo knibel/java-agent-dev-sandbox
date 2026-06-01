@@ -14,6 +14,30 @@
 
 set -euo pipefail
 
+# ── workspace ownership cleanup on exit ───────────────────────────────────────
+# Restore ownership for root-owned files created under /workspace so host users
+# can edit them after the sandbox exits.
+cleanup_workspace_ownership() {
+    local host_uid host_gid
+    host_uid="${HOST_UID:-}"
+    host_gid="${HOST_GID:-}"
+
+    [[ -d /workspace ]] || return 0
+    [[ "${host_uid}" =~ ^[0-9]+$ ]] || return 0
+    [[ "${host_gid}" =~ ^[0-9]+$ ]] || return 0
+
+    # Nothing to do when ownership already matches root:root.
+    if [[ "${host_uid}" == "0" && "${host_gid}" == "0" ]]; then
+        return 0
+    fi
+
+    # Restrict to root-owned paths within /workspace and avoid crossing
+    # filesystem boundaries (e.g. nested mounts).
+    find /workspace -xdev -uid 0 \( ! -uid "${host_uid}" -o ! -gid "${host_gid}" \) \
+        -exec chown "${host_uid}:${host_gid}" {} + 2>/dev/null || true
+}
+trap cleanup_workspace_ownership EXIT INT TERM
+
 # ── copy host ~/.copilot config to writable container directory ───────────────
 # start-sandbox.sh mounts the host ~/.copilot at /root/.copilot-host (read-only)
 # so the Copilot CLI cannot accidentally modify host config files.  Here we copy
@@ -260,7 +284,7 @@ for arg in "$@"; do
 done
 
 if [[ ${USER_SUPPLIED_ALLOW_FLAG} -eq 1 ]]; then
-    exec gh copilot -- "${EXTRA_ARGS[@]}" "$@"
+    gh copilot -- "${EXTRA_ARGS[@]}" "$@"
 else
-    exec gh copilot -- "${DEFAULT_COPILOT_ARGS[@]}" "${EXTRA_ARGS[@]}" "$@"
+    gh copilot -- "${DEFAULT_COPILOT_ARGS[@]}" "${EXTRA_ARGS[@]}" "$@"
 fi
