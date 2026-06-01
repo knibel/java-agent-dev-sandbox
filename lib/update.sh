@@ -115,7 +115,7 @@ verify_release_archive_checksum() {
 download_release_archive() {
     local tag="$1"
     local destination="$2"
-    local repo_basename asset_line asset_name asset_digest tarball_url
+    local repo_basename asset_line asset_name asset_digest
 
     repo_basename="${SANDBOX_RELEASE_REPO##*/}"
     asset_line="$(list_release_archive_assets | select_release_archive_asset_line "${repo_basename}" || true)"
@@ -140,9 +140,12 @@ download_release_archive() {
         fi
     fi
 
-    tarball_url="$(latest_release_tarball_url)"
-    [[ -n "${tarball_url}" ]] || return 1
-    gh api --method GET -H "Accept: application/octet-stream" "${tarball_url#https://api.github.com/}" > "${destination}"
+    gh release download "${tag}" \
+        --repo "${SANDBOX_RELEASE_REPO}" \
+        --archive tar.gz \
+        --output "${destination}" \
+        --clobber \
+        >/dev/null
     printf 'tarball\t'
 }
 
