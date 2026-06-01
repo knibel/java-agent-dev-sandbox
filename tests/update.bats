@@ -54,7 +54,7 @@ setup() {
     '
 
     [ "$status" -eq 0 ]
-    [ "$output" = $'"'"'tarball\t'"'"' ]
+    [ "$output" = $'tarball\t' ]
     [ -f "${destination}" ]
     [ "$(cat "${destination}")" = "archive" ]
     [ "$(cat "${gh_log}")" = "release download v0.0.4 --repo knibel/java-agent-dev-sandbox --archive tar.gz --output ${destination} --clobber" ]
