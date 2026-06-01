@@ -37,6 +37,30 @@ setup() {
     [ "$status" -ne 0 ]
 }
 
+@test "download_release_archive: falls back to gh release source archive download" {
+    local temp_root destination gh_log
+    temp_root="$(mktemp -d)"
+    destination="${temp_root}/release.tar.gz"
+    gh_log="${temp_root}/gh.log"
+
+    run env DESTINATION="${destination}" GH_LOG="${gh_log}" bash -c '
+        source "'"${BATS_TEST_DIRNAME}"'/../lib/update.sh"
+        list_release_archive_assets() { return 0; }
+        gh() {
+            printf "%s\n" "$*" > "${GH_LOG}"
+            printf "archive" > "${DESTINATION}"
+        }
+        download_release_archive "v0.0.4" "${DESTINATION}"
+    '
+
+    [ "$status" -eq 0 ]
+    [ "$output" = $'"'"'tarball\t'"'"' ]
+    [ -f "${destination}" ]
+    [ "$(cat "${destination}")" = "archive" ]
+    [ "$(cat "${gh_log}")" = "release download v0.0.4 --repo knibel/java-agent-dev-sandbox --archive tar.gz --output ${destination} --clobber" ]
+    rm -rf "${temp_root}"
+}
+
 @test "detect_installed_release_tag: prefers updater state file" {
     local install_dir
     install_dir="$(mktemp -d)"
