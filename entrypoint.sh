@@ -290,10 +290,12 @@ fi
 # default allow flags and let the caller fully control permission behavior.
 USER_SUPPLIED_ALLOW_FLAG=0
 for arg in "$@"; do
-    if [[ "${arg}" == --allow-* ]]; then
-        USER_SUPPLIED_ALLOW_FLAG=1
-        break
-    fi
+    case "${arg}" in
+        --allow-*)
+            USER_SUPPLIED_ALLOW_FLAG=1
+            break
+            ;;
+    esac
 done
 
 if [[ ${USER_SUPPLIED_ALLOW_FLAG} -eq 1 ]]; then
