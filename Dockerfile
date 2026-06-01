@@ -1,20 +1,5 @@
 # syntax=docker/dockerfile:1
 
-# Override GO_VERSION to pin the Go toolchain used to compile mcp-language-server
-ARG GO_VERSION=1.24.3
-
-# ── mcp-language-server builder stage ──────────────────────────────────────────
-# Build mcp-language-server in a dedicated Go image so the Go toolchain download
-# never appears in the final runtime image layer history.
-FROM golang:${GO_VERSION} AS mcp-language-server-builder
-RUN set -eux; \
-    mkdir -p /out; \
-    if GOBIN=/out go install github.com/isaacphi/mcp-language-server@latest; then \
-        echo "Built mcp-language-server"; \
-    else \
-        touch /out/.mcp-language-server-unavailable; \
-    fi
-
 FROM ubuntu:24.04
 
 # ── build arguments ─────────────────────────────────────────────────────────
@@ -157,25 +142,9 @@ RUN mkdir -p /opt/jdtls \
     && rm /tmp/jdtls.tar.gz \
     || echo "Note: jdtls could not be downloaded; Java LSP will not be available."
 
-# Install the jdtls launcher wrapper used by mcp-language-server.
+# Install the jdtls launcher wrapper used by Copilot native LSP integration.
 COPY jdtls.sh /usr/local/bin/jdtls
 RUN chmod +x /usr/local/bin/jdtls
-
-# ── mcp-language-server (LSP → MCP bridge) ───────────────────────────────────
-# Installs the bridge that exposes the jdtls Language Server as MCP tools
-# (definition, references, diagnostics, hover, rename, …) so that the Copilot
-# CLI can call them directly.
-#
-# Strategy: compile in a separate builder stage and copy only the resulting
-# binary into the final runtime image.
-# Best-effort: emit a note when the builder stage could not produce the binary.
-COPY --from=mcp-language-server-builder /out /tmp/mcp-language-server-build
-RUN if [ -x /tmp/mcp-language-server-build/mcp-language-server ]; then \
-        cp /tmp/mcp-language-server-build/mcp-language-server /usr/local/bin/mcp-language-server; \
-    else \
-        echo "Note: mcp-language-server build failed in builder stage; Java LSP navigation will not be available."; \
-    fi \
-    ; rm -rf /tmp/mcp-language-server-build
 
 # Make SDKMAN candidate binaries available without sourcing init in every RUN
 ENV PATH="\
