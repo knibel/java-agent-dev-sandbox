@@ -209,6 +209,13 @@ declare -a MOUNTS=()
 declare -a ENV_ARGS=()
 declare -a DOCKER_RUN_EXTRA_ARGS=()
 
+# Forward host UID/GID so entrypoint cleanup can restore ownership for
+# root-owned files created under /workspace during the session.
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+ENV_ARGS+=("-e" "HOST_UID=${HOST_UID}")
+ENV_ARGS+=("-e" "HOST_GID=${HOST_GID}")
+
 # 1. ~/.copilot  ─  custom instructions AND ~/.copilot/mcp-config.json (read-only)
 #    Mounted at a staging path (/root/.copilot-host) so that entrypoint.sh can
 #    copy the contents into /root/.copilot (a plain container-local directory)

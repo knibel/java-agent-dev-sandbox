@@ -127,6 +127,9 @@ parts as read-only volumes before handing control to the container:
 | `~/.azure/` | — | — | Not mounted (Azure DevOps authentication is PAT-only) |
 | `<workspace>` (default: `$PWD`) | `/workspace/` | read-write | Your project files |
 
+On container exit, the sandbox reassigns any root-owned paths under `/workspace`
+to the host user (`HOST_UID:HOST_GID`) so generated files remain editable.
+
 ---
 
 ## Docker CLI, secret-tool, and Testcontainers / Docker daemon access
