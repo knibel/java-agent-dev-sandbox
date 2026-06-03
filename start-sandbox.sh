@@ -216,6 +216,11 @@ HOST_GID="$(id -g)"
 ENV_ARGS+=("-e" "HOST_UID=${HOST_UID}")
 ENV_ARGS+=("-e" "HOST_GID=${HOST_GID}")
 
+# Forward RTK hook opt-out only when explicitly requested by the user.
+if [[ -n "${RTK_HOOK_DISABLED:-}" ]]; then
+    ENV_ARGS+=("-e" "RTK_HOOK_DISABLED=${RTK_HOOK_DISABLED}")
+fi
+
 # 1. ~/.copilot  ─  custom instructions AND ~/.copilot/mcp-config.json (read-only)
 #    Mounted at a staging path (/root/.copilot-host) so that entrypoint.sh can
 #    copy the contents into /root/.copilot (a plain container-local directory)

@@ -57,9 +57,13 @@ fi
 # reach Copilot's LLM context, reducing token usage by 60-90%.
 # --auto-patch: non-interactive; idempotent on repeated runs.
 if command -v rtk &>/dev/null; then
-    RTK_TELEMETRY_DISABLED=1 rtk init -g --copilot --auto-patch 2>/dev/null \
-        && echo "✓  RTK token optimizer initialized (--copilot hook)" \
-        || echo "⚠  RTK init encountered an error; token optimization may not be active."
+    if [[ "${RTK_HOOK_DISABLED:-0}" == "1" ]]; then
+        echo "ℹ  RTK hook initialization skipped (RTK_HOOK_DISABLED=1)"
+    else
+        RTK_TELEMETRY_DISABLED=1 rtk init -g --copilot --auto-patch 2>/dev/null \
+            && echo "✓  RTK token optimizer initialized (--copilot hook)" \
+            || echo "⚠  RTK init encountered an error; token optimization may not be active."
+    fi
 fi
 
 # ── Azure DevOps native skill ─────────────────────────────────────────────────
