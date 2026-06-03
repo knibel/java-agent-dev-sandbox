@@ -216,6 +216,16 @@ HOST_GID="$(id -g)"
 ENV_ARGS+=("-e" "HOST_UID=${HOST_UID}")
 ENV_ARGS+=("-e" "HOST_GID=${HOST_GID}")
 
+# In temporary workspace mode, disable the RTK Copilot hook by default to
+# avoid interactive hook-permission prompts. Users can override this behavior
+# by explicitly setting RTK_HOOK_DISABLED in their environment before launch.
+if [[ "${USE_TMP_WORKSPACE}" == true && -z "${RTK_HOOK_DISABLED:-}" ]]; then
+    ENV_ARGS+=("-e" "RTK_HOOK_DISABLED=1")
+    info "Temporary workspace mode: RTK Copilot hook disabled by default"
+elif [[ -n "${RTK_HOOK_DISABLED:-}" ]]; then
+    ENV_ARGS+=("-e" "RTK_HOOK_DISABLED=${RTK_HOOK_DISABLED}")
+fi
+
 # 1. ~/.copilot  ─  custom instructions AND ~/.copilot/mcp-config.json (read-only)
 #    Mounted at a staging path (/root/.copilot-host) so that entrypoint.sh can
 #    copy the contents into /root/.copilot (a plain container-local directory)

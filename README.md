@@ -156,6 +156,7 @@ host Docker daemon. Testcontainers-based tests also use this path.
 
 Options
   -w, --workspace <dir>   Directory to mount as /workspace  (default: $PWD)
+  --tmp                   Create a fresh temporary /workspace under /tmp
   -i, --image <name>      Docker image name/tag             (default: java-copilot-sandbox)
   --no-build              Skip image rebuild; use existing image
   --auto-update           Check for and apply the latest sandbox release before launch
@@ -174,6 +175,9 @@ container.
 
 # Mount a specific project
 ./start-sandbox.sh -w ~/projects/my-spring-app
+
+# Start with a fresh temporary workspace
+./start-sandbox.sh --tmp
 
 # Start in autopilot mode with a task
 ./start-sandbox.sh -- --autopilot -i "Add unit tests to every service class"
@@ -375,6 +379,9 @@ At container start `entrypoint.sh` runs `rtk init -g --copilot --auto-patch`,
 which installs a `PreToolUse` hook that rewrites supported bash commands (e.g.
 `git status` → `rtk git status`) before Copilot sees the output.
 
+When launching with `--tmp`, the launcher sets `RTK_HOOK_DISABLED=1` by default
+to avoid hook permission prompts in throwaway sessions.
+
 ### Verify and monitor savings
 
 ```
@@ -399,10 +406,10 @@ rtk ls .              # token-optimized directory tree
 ### Opt out
 
 To disable the automatic hook for a session, set `RTK_HOOK_DISABLED=1`
-before starting the sandbox:
+before starting the sandbox (or use `--tmp`, which sets it automatically):
 
 ```bash
-RTK_HOOK_DISABLED=1 sandbox
+RTK_HOOK_DISABLED=1 ./start-sandbox.sh
 ```
 
 To remove the hook permanently:
