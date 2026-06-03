@@ -216,13 +216,8 @@ HOST_GID="$(id -g)"
 ENV_ARGS+=("-e" "HOST_UID=${HOST_UID}")
 ENV_ARGS+=("-e" "HOST_GID=${HOST_GID}")
 
-# In temporary workspace mode, disable the RTK Copilot hook by default to
-# avoid interactive hook-permission prompts. Users can override this behavior
-# by explicitly setting RTK_HOOK_DISABLED in their environment before launch.
-if [[ "${USE_TMP_WORKSPACE}" == true && -z "${RTK_HOOK_DISABLED:-}" ]]; then
-    ENV_ARGS+=("-e" "RTK_HOOK_DISABLED=1")
-    info "Temporary workspace mode: RTK Copilot hook disabled by default"
-elif [[ -n "${RTK_HOOK_DISABLED:-}" ]]; then
+# Forward RTK hook opt-out only when explicitly requested by the user.
+if [[ -n "${RTK_HOOK_DISABLED:-}" ]]; then
     ENV_ARGS+=("-e" "RTK_HOOK_DISABLED=${RTK_HOOK_DISABLED}")
 fi
 

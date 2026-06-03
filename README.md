@@ -379,8 +379,8 @@ At container start `entrypoint.sh` runs `rtk init -g --copilot --auto-patch`,
 which installs a `PreToolUse` hook that rewrites supported bash commands (e.g.
 `git status` → `rtk git status`) before Copilot sees the output.
 
-When launching with `--tmp`, the launcher sets `RTK_HOOK_DISABLED=1` by default
-to avoid hook permission prompts in throwaway sessions.
+The sandbox launches Copilot with `--allow-all` by default, so RTK-related
+permission requests are auto-approved in normal sessions.
 
 ### Verify and monitor savings
 
